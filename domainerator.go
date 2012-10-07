@@ -1,20 +1,26 @@
 package main
 
 import (
+	"errors"
 	"flag"
 	"fmt"
-	"os"
 	"io/ioutil"
+	"net"
+	"os"
 	"strings"
-	"errors"
+)
+
+const (
+	defaultConcurrency = 10 // How many goroutines should we run at the same time?
 )
 
 // Command line options
 var (
-	verbose = flag.Bool("v", false, "Verbose mode")
-	single = flag.Bool("s", false, "Also check single words")
-	hyphenate = flag.Bool("H", false, "Include hyphenated combinations")
-	tldsCsv = flag.String("tlds", "com,net,org", "TLDs to combine with")
+	verbose     = flag.Bool("v", false, "Verbose mode")
+	single      = flag.Bool("s", false, "Also check single words")
+	hyphenate   = flag.Bool("H", false, "Include hyphenated combinations")
+	tldsCsv     = flag.String("tlds", "com,net,org", "TLDs to combine with")
+	concurrency = flag.Int("c", defaultConcurrency, "Number of concurrent threads doing checks")
 )
 
 // Prints an error message to stderr and exist with a return code
@@ -67,32 +73,52 @@ func btou(b bool) int {
 
 // Calculate possible combinations 
 func calculateCombinations(wordCount, tldCount int, single, hyphenate bool) (result int) {
-	c := wordCount * tldCount
-	return c + (c * btou(single)) + (c * btou(hyphenate))
+	common := (wordCount * wordCount * tldCount)
+	singles := (btou(single) * wordCount * tldCount)
+	hyphenated := (btou(hyphenate) * wordCount * wordCount * tldCount)
+	return common + singles + hyphenated
 }
 
 // Combine words and tlds to make the ordered domain list
-func combineWords(words, tlds []string, single, hyphenate bool) ([]string) {
+func combineWords(words, tlds []string, single, hyphenate bool) []string {
 	combinations := calculateCombinations(len(words), len(tlds), single, hyphenate)
-	domains := make([]string, combinations)
+	domains := make([]string, 0, combinations)
 	for _, prefix := range words {
 		if single {
 			for _, tld := range tlds {
-				domains = append(domains, prefix + "." + tld)
+				domains = append(domains, prefix+"."+tld)
 			}
 		}
 		for _, suffix := range words {
 			for _, tld := range tlds {
-				domains = append(domains, prefix + suffix + "." + tld)
+				domains = append(domains, prefix+suffix+"."+tld)
 				if hyphenate {
-					domains = append(domains, prefix + "-" + suffix + "." + tld)
+					domains = append(domains, prefix+"-"+suffix+"."+tld)
 				}
 			}
 		}
 	}
+
 	return domains
 }
 
+type DomainResult struct {
+	domain     string
+	registered bool
+	addresses  []string
+	err        error
+}
+
+// Check if each domain is registered
+func checkDomains(in <-chan string, out chan<- DomainResult) {
+	for domain := range in {
+		addr, err := net.LookupHost(domain)
+		registered := err == nil
+		out <- DomainResult{domain, registered, addr, err}
+	}
+}
+
+// MAIN
 func main() {
 	flag.Usage = usage
 	flag.Parse()
@@ -111,14 +137,29 @@ func main() {
 		showErrorAndExit(err, 4)
 	}
 
-	domains, err := combineWords(words, tlds, *single, *hyphenate)
-	fmt.Printf("%q\n", domains)
+	domains := combineWords(words, tlds, *single, *hyphenate)
 
-	/*
-		TODO
-		- solve IPs to check what domain is registered or not
-			- addrs, err = net.LookupHost(domain)
-		- check for whois?
-		- check for MX entries?
-	*/
+	pending, complete := make(chan string), make(chan DomainResult)
+
+	for i := 0; i < *concurrency; i++ {
+		go checkDomains(pending, complete)
+	}
+
+	go func() {
+		for _, domain := range domains {
+			pending <- domain
+		}
+		close(pending)
+	}()
+
+	processed := 0
+	for r := range complete {
+		processed += 1
+		if !r.registered {
+			fmt.Println(r.domain)
+		}
+		if processed == len(domains) {
+			break
+		}
+	}
 }
