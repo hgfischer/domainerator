@@ -18,6 +18,8 @@ const (
 var (
 	verbose     = flag.Bool("v", false, "Verbose mode")
 	single      = flag.Bool("s", false, "Also check single words")
+	onlySingle  = flag.Bool("S", false, "Check only single words combined with TLDs")
+	itself      = flag.Bool("i", false, "Include words combined with itself")
 	hyphenate   = flag.Bool("H", false, "Include hyphenated combinations")
 	tldsCsv     = flag.String("tlds", "com,net,org", "TLDs to combine with")
 	concurrency = flag.Int("c", defaultConcurrency, "Number of concurrent threads doing checks")
@@ -37,6 +39,19 @@ func usage() {
 	os.Exit(2)
 }
 
+// Remove duplicate strings from a slice
+func removeDuplicates(strings []string) []string {
+	m := map[string]bool{}
+	res := []string{}
+	for _, str := range strings {
+		if _, seen := m[str]; !seen {
+			res = append(res, str)
+			m[str] = true
+		}
+	}
+	return res
+}
+
 // Load a word list file in a strings slice and return it
 func loadWordListFile(filePath string) ([]string, error) {
 	content, err := ioutil.ReadFile(filePath)
@@ -47,7 +62,9 @@ func loadWordListFile(filePath string) ([]string, error) {
 	if len(strContent) == 0 {
 		return nil, errors.New("empty word list")
 	}
-	return strings.Split(string(content), "\n"), nil
+	list := strings.Split(string(content), "\n")
+	list = removeDuplicates(list)
+	return list, nil
 }
 
 // Parse a CSV string into a cleaned slice of strings
@@ -60,40 +77,29 @@ func parseTopLevelDomains(tldCsv string) ([]string, error) {
 	for k, v := range tlds {
 		tlds[k] = strings.TrimSpace(v)
 	}
+	tlds = removeDuplicates(tlds)
 	return tlds, nil
 }
 
-// Boolean to Integer
-func btoi(b bool) int {
-	if b {
-		return 1
-	}
-	return 0
-}
-
-// Calculate possible combinations 
-func calculateCombinations(wordCount, tldCount int, single, hyphenate bool) (result int) {
-	common := (wordCount * wordCount * tldCount)
-	singles := (btoi(single) * wordCount * tldCount)
-	hyphenated := (btoi(hyphenate) * wordCount * wordCount * tldCount)
-	return common + singles + hyphenated
-}
-
 // Combine words and tlds to make the ordered domain list
-func combineWords(words, tlds []string, single, hyphenate bool) []string {
-	combinations := calculateCombinations(len(words), len(tlds), single, hyphenate)
-	domains := make([]string, 0, combinations)
+func combineWords(words, tlds []string, single, onlySingle, hyphenate, itself bool) []string {
+	domains := make([]string, 0)
 	for _, prefix := range words {
-		if single {
+		if single || onlySingle {
 			for _, tld := range tlds {
 				domains = append(domains, prefix+"."+tld)
 			}
 		}
-		for _, suffix := range words {
-			for _, tld := range tlds {
-				domains = append(domains, prefix+suffix+"."+tld)
-				if hyphenate {
-					domains = append(domains, prefix+"-"+suffix+"."+tld)
+		if !onlySingle {
+			for _, suffix := range words {
+				if prefix == suffix && !itself {
+					continue
+				}
+				for _, tld := range tlds {
+					domains = append(domains, prefix+suffix+"."+tld)
+					if hyphenate {
+						domains = append(domains, prefix+"-"+suffix+"."+tld)
+					}
 				}
 			}
 		}
@@ -137,7 +143,7 @@ func main() {
 		showErrorAndExit(err, 4)
 	}
 
-	domains := combineWords(words, tlds, *single, *hyphenate)
+	domains := combineWords(words, tlds, *single, *onlySingle, *hyphenate, *itself)
 
 	pending, complete := make(chan string), make(chan DomainResult)
 
