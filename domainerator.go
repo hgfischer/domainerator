@@ -6,8 +6,10 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net"
+	"net/http"
 	"os"
 	"strings"
+	"time"
 )
 
 const (
@@ -16,12 +18,11 @@ const (
 
 // Command line options
 var (
-	verbose     = flag.Bool("v", false, "Verbose mode")
 	single      = flag.Bool("s", false, "Also check single words")
-	onlySingle  = flag.Bool("S", false, "Check only single words combined with TLDs")
+	onlySingle  = flag.Bool("S", false, "Check only single words combined with suffixes/TLDs")
 	itself      = flag.Bool("i", false, "Include words combined with itself")
 	hyphenate   = flag.Bool("H", false, "Include hyphenated combinations")
-	tldsCsv     = flag.String("tlds", "com,net,org", "TLDs to combine with")
+	tldsCsv     = flag.String("tlds", "com,net,org", "Suffixes and/or TLDs to combine with")
 	concurrency = flag.Int("c", defaultConcurrency, "Number of concurrent threads doing checks")
 )
 
@@ -33,7 +34,7 @@ func showErrorAndExit(err error, returnCode int) {
 
 // Print command line help and exit application
 func usage() {
-	fmt.Fprintf(os.Stderr, "Usage: domainerator [flags] [word list file]\n")
+	fmt.Fprintf(os.Stderr, "Usage: domainerator [flags] [word list file] [output file]\n")
 	fmt.Fprintf(os.Stderr, "\nFlags:\n")
 	flag.PrintDefaults()
 	os.Exit(2)
@@ -68,7 +69,7 @@ func loadWordListFile(filePath string) ([]string, error) {
 }
 
 // Parse a CSV string into a cleaned slice of strings
-func parseTopLevelDomains(tldCsv string) ([]string, error) {
+func parseTopLevelDomains(tldCsv string, accepted map[string]bool) ([]string, error) {
 	tldCsv = strings.TrimSpace(tldCsv)
 	if len(tldCsv) == 0 {
 		return nil, errors.New("empty TLD list")
@@ -78,7 +79,37 @@ func parseTopLevelDomains(tldCsv string) ([]string, error) {
 		tlds[k] = strings.TrimSpace(v)
 	}
 	tlds = removeDuplicates(tlds)
+	for _, tld := range tlds {
+		_, ok := accepted[tld]
+		if !ok {
+			return nil, errors.New(fmt.Sprintf("Suffix/TLD %q is unknown", tld))
+		}
+	}
+
 	return tlds, nil
+}
+
+func loadKnownSuffixes() (suffixes map[string]bool, err error) {
+	suffixes = make(map[string]bool)
+	resp, err := http.Get(
+		"http://mxr.mozilla.org/mozilla-central/source/netwerk/dns/effective_tld_names.dat?raw=1")
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	body, err := ioutil.ReadAll(resp.Body)
+	lines := strings.Split(string(body), "\n")
+	for _, s := range lines {
+		s = strings.TrimSpace(s)
+		if len(s) == 0 || strings.HasPrefix(s, "//") || strings.HasPrefix(s, "!") {
+			continue
+		}
+		if strings.HasPrefix(s, "*.") {
+			s = strings.Replace(s, "*.", "", 1)
+		}
+		suffixes[s] = true
+	}
+	return
 }
 
 // Combine words and tlds to make the ordered domain list
@@ -115,6 +146,18 @@ type DomainResult struct {
 	err        error
 }
 
+// Format DomainResult into string for output file
+func (dr DomainResult) String() string {
+	var err string
+	if dr.err == nil {
+		err = ""
+	} else {
+		err = fmt.Sprintf("%q", dr.err)
+	}
+	return fmt.Sprintf("%s\t%t\t%q\t%q\n",
+		dr.domain, dr.registered, dr.addresses, err)
+}
+
 // Check if each domain is registered
 func checkDomains(in <-chan string, out chan<- DomainResult) {
 	for domain := range in {
@@ -128,25 +171,44 @@ func checkDomains(in <-chan string, out chan<- DomainResult) {
 func main() {
 	flag.Usage = usage
 	flag.Parse()
-	if flag.NArg() != 1 {
-		fmt.Fprintf(os.Stderr, "Error: Missing word list file path\n")
+	if flag.NArg() != 2 {
+		fmt.Fprintf(os.Stderr, "Error: Missing word list file path and/or output file path\n")
 		flag.Usage()
 	}
 
-	words, err := loadWordListFile(flag.Arg(0))
+	fmt.Print("Loading know suffixes/TLDs list... ")
+	accepted, err := loadKnownSuffixes()
 	if err != nil {
 		showErrorAndExit(err, 3)
 	}
+	fmt.Println("done.")
 
-	tlds, err := parseTopLevelDomains(*tldsCsv)
+	fmt.Print("Loading word list.. ")
+	words, err := loadWordListFile(flag.Arg(0))
 	if err != nil {
 		showErrorAndExit(err, 4)
 	}
+	fmt.Println("done.")
 
+	tlds, err := parseTopLevelDomains(*tldsCsv, accepted)
+	if err != nil {
+		showErrorAndExit(err, 5)
+	}
+
+	outputPath := flag.Arg(1)
+	outputFile, err := os.Create(outputPath)
+	if err != nil {
+		showErrorAndExit(err, 6)
+	}
+	defer outputFile.Close()
+
+	fmt.Print("Creating domain list... ")
 	domains := combineWords(words, tlds, *single, *onlySingle, *hyphenate, *itself)
+	fmt.Println("done.")
 
+	fmt.Println("Starting checks... ")
+	startTime := time.Now()
 	pending, complete := make(chan string), make(chan DomainResult)
-
 	for i := 0; i < *concurrency; i++ {
 		go checkDomains(pending, complete)
 	}
@@ -158,14 +220,26 @@ func main() {
 		close(pending)
 	}()
 
+	digits := len(fmt.Sprintf("%d", len(domains)))
+	fmtStr := fmt.Sprintf("\rChecked %%%dd of %%%dd domains. Elapsed %%10s. ETA %%8s.", digits, digits)
+
 	processed := 0
 	for r := range complete {
 		processed += 1
-		if !r.registered {
-			fmt.Println(r.domain)
+		_, err := outputFile.WriteString(r.String())
+		if err != nil {
+			showErrorAndExit(err, 6)
 		}
 		if processed == len(domains) {
 			break
 		}
+		if processed%10 == 0 {
+			elapsed := time.Since(startTime)
+			etaSecs := elapsed.Seconds() * float64(len(domains)) / float64(processed)
+			eta := time.Duration(etaSecs) * time.Second
+			fmt.Printf(fmtStr, processed, len(domains), elapsed, eta)
+		}
 	}
+
+	fmt.Println()
 }
