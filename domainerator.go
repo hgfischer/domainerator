@@ -64,7 +64,7 @@ func parseTopLevelDomains(tldCsv string) ([]string, error) {
 }
 
 // Boolean to Integer
-func btou(b bool) int {
+func btoi(b bool) int {
 	if b {
 		return 1
 	}
@@ -74,8 +74,8 @@ func btou(b bool) int {
 // Calculate possible combinations 
 func calculateCombinations(wordCount, tldCount int, single, hyphenate bool) (result int) {
 	common := (wordCount * wordCount * tldCount)
-	singles := (btou(single) * wordCount * tldCount)
-	hyphenated := (btou(hyphenate) * wordCount * wordCount * tldCount)
+	singles := (btoi(single) * wordCount * tldCount)
+	hyphenated := (btoi(hyphenate) * wordCount * wordCount * tldCount)
 	return common + singles + hyphenated
 }
 
