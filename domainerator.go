@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net"
+	"net/http"
 	"os"
 	"strings"
 	"time"
@@ -18,10 +19,10 @@ const (
 // Command line options
 var (
 	single      = flag.Bool("s", false, "Also check single words")
-	onlySingle  = flag.Bool("S", false, "Check only single words combined with TLDs")
+	onlySingle  = flag.Bool("S", false, "Check only single words combined with suffixes/TLDs")
 	itself      = flag.Bool("i", false, "Include words combined with itself")
 	hyphenate   = flag.Bool("H", false, "Include hyphenated combinations")
-	tldsCsv     = flag.String("tlds", "com,net,org", "TLDs to combine with")
+	tldsCsv     = flag.String("tlds", "com,net,org", "Suffixes and/or TLDs to combine with")
 	concurrency = flag.Int("c", defaultConcurrency, "Number of concurrent threads doing checks")
 )
 
@@ -68,7 +69,7 @@ func loadWordListFile(filePath string) ([]string, error) {
 }
 
 // Parse a CSV string into a cleaned slice of strings
-func parseTopLevelDomains(tldCsv string) ([]string, error) {
+func parseTopLevelDomains(tldCsv string, accepted map[string]bool) ([]string, error) {
 	tldCsv = strings.TrimSpace(tldCsv)
 	if len(tldCsv) == 0 {
 		return nil, errors.New("empty TLD list")
@@ -78,7 +79,37 @@ func parseTopLevelDomains(tldCsv string) ([]string, error) {
 		tlds[k] = strings.TrimSpace(v)
 	}
 	tlds = removeDuplicates(tlds)
+	for _, tld := range tlds {
+		_, ok := accepted[tld]
+		if !ok {
+			return nil, errors.New(fmt.Sprintf("Suffix/TLD %q is unknown", tld))
+		}
+	}
+
 	return tlds, nil
+}
+
+func loadKnownSuffixes() (suffixes map[string]bool, err error) {
+	suffixes = make(map[string]bool)
+	resp, err := http.Get(
+		"http://mxr.mozilla.org/mozilla-central/source/netwerk/dns/effective_tld_names.dat?raw=1")
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	body, err := ioutil.ReadAll(resp.Body)
+	lines := strings.Split(string(body), "\n")
+	for _, s := range lines {
+		s = strings.TrimSpace(s)
+		if len(s) == 0 || strings.HasPrefix(s, "//") || strings.HasPrefix(s, "!") {
+			continue
+		}
+		if strings.HasPrefix(s, "*.") {
+			s = strings.Replace(s, "*.", "", 1)
+		}
+		suffixes[s] = true
+	}
+	return
 }
 
 // Combine words and tlds to make the ordered domain list
@@ -145,22 +176,29 @@ func main() {
 		flag.Usage()
 	}
 
-	fmt.Print("Loading word list.. ")
-	words, err := loadWordListFile(flag.Arg(0))
+	fmt.Print("Loading know suffixes/TLDs list... ")
+	accepted, err := loadKnownSuffixes()
 	if err != nil {
 		showErrorAndExit(err, 3)
 	}
 	fmt.Println("done.")
 
-	tlds, err := parseTopLevelDomains(*tldsCsv)
+	fmt.Print("Loading word list.. ")
+	words, err := loadWordListFile(flag.Arg(0))
 	if err != nil {
 		showErrorAndExit(err, 4)
+	}
+	fmt.Println("done.")
+
+	tlds, err := parseTopLevelDomains(*tldsCsv, accepted)
+	if err != nil {
+		showErrorAndExit(err, 5)
 	}
 
 	outputPath := flag.Arg(1)
 	outputFile, err := os.Create(outputPath)
 	if err != nil {
-		showErrorAndExit(err, 5)
+		showErrorAndExit(err, 6)
 	}
 	defer outputFile.Close()
 
