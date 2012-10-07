@@ -8,6 +8,7 @@ import (
 	"net"
 	"os"
 	"strings"
+	"time"
 )
 
 const (
@@ -16,7 +17,6 @@ const (
 
 // Command line options
 var (
-	verbose     = flag.Bool("v", false, "Verbose mode")
 	single      = flag.Bool("s", false, "Also check single words")
 	onlySingle  = flag.Bool("S", false, "Check only single words combined with TLDs")
 	itself      = flag.Bool("i", false, "Include words combined with itself")
@@ -33,7 +33,7 @@ func showErrorAndExit(err error, returnCode int) {
 
 // Print command line help and exit application
 func usage() {
-	fmt.Fprintf(os.Stderr, "Usage: domainerator [flags] [word list file]\n")
+	fmt.Fprintf(os.Stderr, "Usage: domainerator [flags] [word list file] [output file]\n")
 	fmt.Fprintf(os.Stderr, "\nFlags:\n")
 	flag.PrintDefaults()
 	os.Exit(2)
@@ -115,6 +115,18 @@ type DomainResult struct {
 	err        error
 }
 
+// Format DomainResult into string for output file
+func (dr DomainResult) String() string {
+	var err string
+	if dr.err == nil {
+		err = ""
+	} else {
+		err = fmt.Sprintf("%q", dr.err)
+	}
+	return fmt.Sprintf("%s\t%t\t%q\t%q\n",
+		dr.domain, dr.registered, dr.addresses, err)
+}
+
 // Check if each domain is registered
 func checkDomains(in <-chan string, out chan<- DomainResult) {
 	for domain := range in {
@@ -128,25 +140,37 @@ func checkDomains(in <-chan string, out chan<- DomainResult) {
 func main() {
 	flag.Usage = usage
 	flag.Parse()
-	if flag.NArg() != 1 {
-		fmt.Fprintf(os.Stderr, "Error: Missing word list file path\n")
+	if flag.NArg() != 2 {
+		fmt.Fprintf(os.Stderr, "Error: Missing word list file path and/or output file path\n")
 		flag.Usage()
 	}
 
+	fmt.Print("Loading word list.. ")
 	words, err := loadWordListFile(flag.Arg(0))
 	if err != nil {
 		showErrorAndExit(err, 3)
 	}
+	fmt.Println("done.")
 
 	tlds, err := parseTopLevelDomains(*tldsCsv)
 	if err != nil {
 		showErrorAndExit(err, 4)
 	}
 
+	outputPath := flag.Arg(1)
+	outputFile, err := os.Create(outputPath)
+	if err != nil {
+		showErrorAndExit(err, 5)
+	}
+	defer outputFile.Close()
+
+	fmt.Print("Creating domain list... ")
 	domains := combineWords(words, tlds, *single, *onlySingle, *hyphenate, *itself)
+	fmt.Println("done.")
 
+	fmt.Println("Starting checks... ")
+	startTime := time.Now()
 	pending, complete := make(chan string), make(chan DomainResult)
-
 	for i := 0; i < *concurrency; i++ {
 		go checkDomains(pending, complete)
 	}
@@ -158,14 +182,26 @@ func main() {
 		close(pending)
 	}()
 
+	digits := len(fmt.Sprintf("%d", len(domains)))
+	fmtStr := fmt.Sprintf("\rChecked %%%dd of %%%dd domains. Elapsed %%10s. ETA %%8s.", digits, digits)
+
 	processed := 0
 	for r := range complete {
 		processed += 1
-		if !r.registered {
-			fmt.Println(r.domain)
+		_, err := outputFile.WriteString(r.String())
+		if err != nil {
+			showErrorAndExit(err, 6)
 		}
 		if processed == len(domains) {
 			break
 		}
+		if processed%10 == 0 {
+			elapsed := time.Since(startTime)
+			etaSecs := elapsed.Seconds() * float64(len(domains)) / float64(processed)
+			eta := time.Duration(etaSecs) * time.Second
+			fmt.Printf(fmtStr, processed, len(domains), elapsed, eta)
+		}
 	}
+
+	fmt.Println()
 }
