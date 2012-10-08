@@ -10,6 +10,7 @@ import (
 	"os"
 	"strings"
 	"time"
+	"whois"
 )
 
 const (
@@ -161,6 +162,7 @@ type DomainResult struct {
 	registered bool
 	addresses  []string
 	err        error
+	whois      []string
 }
 
 // Format DomainResult into string for output file
@@ -175,12 +177,28 @@ func (dr DomainResult) String() string {
 		dr.domain, dr.registered, dr.addresses, err)
 }
 
+// TODO check against `dig +short CNAME tld.whois-servers.net`
+func whoisDomain(domain string) ([]string, error) {
+	w, err := whois.Dial("whois.iana.org:43")
+	if err != nil {
+		return nil, err
+	}
+	results, err := w.Query(domain)
+	if err != nil {
+		return nil, err
+	}
+	return results, nil
+}
+
+func checkWhoisResult(result []string)
+
 // Check if each domain is registered
 func checkDomains(in <-chan string, out chan<- DomainResult) {
 	for domain := range in {
 		addr, err := net.LookupHost(domain)
 		registered := err == nil
-		out <- DomainResult{domain, registered, addr, err}
+		whois, err := whoisDomain(domain)
+		out <- DomainResult{domain, registered, addr, err, whois}
 	}
 }
 
