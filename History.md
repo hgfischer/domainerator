@@ -1,4 +1,11 @@
 
+1.3.0 / 2012-10-07 
+==================
+
+  * Added support for separate word lists for prefixes and suffixes
+  * Added more items to git ignore list
+  * Added install instructions
+
 1.2.0 / 2012-10-07 
 ==================
 
