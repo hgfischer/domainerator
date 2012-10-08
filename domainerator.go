@@ -19,10 +19,10 @@ const (
 // Command line options
 var (
 	single      = flag.Bool("s", false, "Also check single words")
-	onlySingle  = flag.Bool("S", false, "Check only single words combined with suffixes/TLDs")
+	onlySingle  = flag.Bool("S", false, "Check only single words combined with TLDs")
 	itself      = flag.Bool("i", false, "Include words combined with itself")
 	hyphenate   = flag.Bool("H", false, "Include hyphenated combinations")
-	tldsCsv     = flag.String("tlds", "com,net,org", "Suffixes and/or TLDs to combine with")
+	tldsCsv     = flag.String("tlds", "com,net,org", "TLDs to combine with")
 	concurrency = flag.Int("c", defaultConcurrency, "Number of concurrent threads doing checks")
 )
 
@@ -34,7 +34,8 @@ func showErrorAndExit(err error, returnCode int) {
 
 // Print command line help and exit application
 func usage() {
-	fmt.Fprintf(os.Stderr, "Usage: domainerator [flags] [word list file] [output file]\n")
+	fmt.Fprintf(os.Stderr,
+		"Usage: domainerator [flags] [prefixes word list] [suffixes word list] [output file]\n")
 	fmt.Fprintf(os.Stderr, "\nFlags:\n")
 	flag.PrintDefaults()
 	os.Exit(2)
@@ -65,7 +66,14 @@ func loadWordListFile(filePath string) ([]string, error) {
 	}
 	list := strings.Split(string(content), "\n")
 	list = removeDuplicates(list)
-	return list, nil
+	words := make([]string, 0)
+	for _, w := range list {
+		w = strings.TrimSpace(w)
+		if len(w) > 0 {
+			words = append(words, w)
+		}
+	}
+	return words, nil
 }
 
 // Parse a CSV string into a cleaned slice of strings
@@ -82,15 +90,15 @@ func parseTopLevelDomains(tldCsv string, accepted map[string]bool) ([]string, er
 	for _, tld := range tlds {
 		_, ok := accepted[tld]
 		if !ok {
-			return nil, errors.New(fmt.Sprintf("Suffix/TLD %q is unknown", tld))
+			return nil, errors.New(fmt.Sprintf("TLD %q is unknown", tld))
 		}
 	}
 
 	return tlds, nil
 }
 
-func loadKnownSuffixes() (suffixes map[string]bool, err error) {
-	suffixes = make(map[string]bool)
+func loadKnownTopLevelDomains() (tlds map[string]bool, err error) {
+	tlds = make(map[string]bool)
 	resp, err := http.Get(
 		"http://mxr.mozilla.org/mozilla-central/source/netwerk/dns/effective_tld_names.dat?raw=1")
 	if err != nil {
@@ -107,22 +115,30 @@ func loadKnownSuffixes() (suffixes map[string]bool, err error) {
 		if strings.HasPrefix(s, "*.") {
 			s = strings.Replace(s, "*.", "", 1)
 		}
-		suffixes[s] = true
+		tlds[s] = true
 	}
 	return
 }
 
 // Combine words and tlds to make the ordered domain list
-func combineWords(words, tlds []string, single, onlySingle, hyphenate, itself bool) []string {
+func combineWords(prefixes, suffixes, tlds []string, single, onlySingle, hyphenate, itself bool) []string {
 	domains := make([]string, 0)
-	for _, prefix := range words {
-		if single || onlySingle {
+	if single || onlySingle {
+		for _, prefix := range prefixes {
 			for _, tld := range tlds {
 				domains = append(domains, prefix+"."+tld)
 			}
 		}
-		if !onlySingle {
-			for _, suffix := range words {
+		for _, suffix := range suffixes {
+			for _, tld := range tlds {
+				domains = append(domains, suffix+"."+tld)
+			}
+		}
+	}
+
+	if !onlySingle {
+		for _, prefix := range prefixes {
+			for _, suffix := range suffixes {
 				if prefix == suffix && !itself {
 					continue
 				}
@@ -152,7 +168,7 @@ func (dr DomainResult) String() string {
 	if dr.err == nil {
 		err = ""
 	} else {
-		err = fmt.Sprintf("%q", dr.err)
+		err = fmt.Sprintf("%s", dr.err)
 	}
 	return fmt.Sprintf("%s\t%t\t%q\t%q\n",
 		dr.domain, dr.registered, dr.addresses, err)
@@ -171,20 +187,24 @@ func checkDomains(in <-chan string, out chan<- DomainResult) {
 func main() {
 	flag.Usage = usage
 	flag.Parse()
-	if flag.NArg() != 2 {
-		fmt.Fprintf(os.Stderr, "Error: Missing word list file path and/or output file path\n")
+	if flag.NArg() != 3 {
+		fmt.Fprintf(os.Stderr, "Error: Missing some word list file path and/or output file path\n")
 		flag.Usage()
 	}
 
-	fmt.Print("Loading know suffixes/TLDs list... ")
-	accepted, err := loadKnownSuffixes()
+	fmt.Print("Loading TLDs list... ")
+	accepted, err := loadKnownTopLevelDomains()
 	if err != nil {
 		showErrorAndExit(err, 3)
 	}
 	fmt.Println("done.")
 
-	fmt.Print("Loading word list.. ")
-	words, err := loadWordListFile(flag.Arg(0))
+	fmt.Print("Loading word lists.. ")
+	prefixes, err := loadWordListFile(flag.Arg(0))
+	if err != nil {
+		showErrorAndExit(err, 4)
+	}
+	suffixes, err := loadWordListFile(flag.Arg(1))
 	if err != nil {
 		showErrorAndExit(err, 4)
 	}
@@ -195,7 +215,7 @@ func main() {
 		showErrorAndExit(err, 5)
 	}
 
-	outputPath := flag.Arg(1)
+	outputPath := flag.Arg(2)
 	outputFile, err := os.Create(outputPath)
 	if err != nil {
 		showErrorAndExit(err, 6)
@@ -203,7 +223,7 @@ func main() {
 	defer outputFile.Close()
 
 	fmt.Print("Creating domain list... ")
-	domains := combineWords(words, tlds, *single, *onlySingle, *hyphenate, *itself)
+	domains := combineWords(prefixes, suffixes, tlds, *single, *onlySingle, *hyphenate, *itself)
 	fmt.Println("done.")
 
 	fmt.Println("Starting checks... ")
