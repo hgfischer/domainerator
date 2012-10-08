@@ -152,6 +152,7 @@ func combineWords(prefixes, suffixes, tlds []string, single, onlySingle, hyphena
 		}
 	}
 
+	domains = removeDuplicates(domains)
 	return domains
 }
 
