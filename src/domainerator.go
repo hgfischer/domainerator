@@ -23,6 +23,7 @@ var (
 	itself      = flag.Bool("i", false, "Include words combined with itself")
 	hyphenate   = flag.Bool("H", false, "Include hyphenated combinations")
 	tldsCsv     = flag.String("tlds", "com,net,org", "TLDs to combine with")
+	dnsServers  = flag.String("dns", "", "Comma-separated list of DNS servers to talk to")
 	concurrency = flag.Int("c", defaultConcurrency, "Number of concurrent threads doing checks")
 )
 
@@ -97,6 +98,7 @@ func parseTopLevelDomains(tldCsv string, accepted map[string]bool) ([]string, er
 	return tlds, nil
 }
 
+// Load known domain prefixes and TLDs from Mozilla
 func loadKnownTopLevelDomains() (tlds map[string]bool, err error) {
 	tlds = make(map[string]bool)
 	resp, err := http.Get(
@@ -166,16 +168,25 @@ func (dr DomainResult) String() string {
 	return fmt.Sprintf("%s\t%t\n", dr.domain, dr.registered)
 }
 
-func hasNS(domain string) (bool, error) {
+// Returns true if domain has a Name Server associated
+func hasNS(domain, dnsServer string) (bool, error) {
 	config, err := dns.ClientConfigFromFile("/etc/resolv.conf")
 	if err != nil {
 		return false, err
 	}
 	c := new(dns.Client)
+	c.Net = "tcp"
+	c.ReadTimeout = time.Duration(4) * time.Second
+	c.WriteTimeout = c.ReadTimeout
+	c.Retry = true
+	c.Attempts = 3
 	m := new(dns.Msg)
 	m.SetQuestion(domain+".", dns.TypeNS)
 	m.RecursionDesired = true
-	in, err := c.Exchange(m, config.Servers[0]+":"+config.Port)
+	if len(dnsServer) == 0 {
+		dnsServer = config.Servers[0] + ":" + config.Port
+	}
+	in, err := c.Exchange(m, dnsServer)
 	if err != nil {
 		return false, err
 	}
@@ -183,13 +194,22 @@ func hasNS(domain string) (bool, error) {
 }
 
 // Check if each domain is registered
-func checkDomains(in <-chan string, out chan<- DomainResult) {
+func checkDomains(in <-chan string, out chan<- DomainResult, dnsServer string) {
 	for domain := range in {
-		registered, err := hasNS(domain)
-		if err != nil {
-			fmt.Println(err)
+		var registered bool
+		var err error
+		for i := 0; i < 5; i++ {
+			registered, err = hasNS(domain, dnsServer)
+			if err == nil {
+				break
+			}
+			fmt.Fprintf(os.Stderr, "\nRetrying %q in DNS %q...\n", domain, dnsServer)
 		}
-		out <- DomainResult{domain, registered}
+		if err == nil {
+			out <- DomainResult{domain, registered}
+		} else {
+			break
+		}
 	}
 }
 
@@ -239,8 +259,23 @@ func main() {
 	fmt.Println("Starting checks... ")
 	startTime := time.Now()
 	pending, complete := make(chan string), make(chan DomainResult)
+	var dnses []string
+	dnsServer := ""
+	curDns := 0
+
+	if len(*dnsServers) > 0 {
+		dnses = strings.Split(*dnsServers, ",")
+	}
+
 	for i := 0; i < *concurrency; i++ {
-		go checkDomains(pending, complete)
+		if len(dnses) > 0 {
+			dnsServer = dnses[curDns]
+			curDns += 1
+			if curDns >= len(dnses) {
+				curDns = 0
+			}
+		}
+		go checkDomains(pending, complete, dnsServer)
 	}
 
 	go func() {
