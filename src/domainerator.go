@@ -4,13 +4,12 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"github.com/miekg/dns"
 	"io/ioutil"
-	"net"
 	"net/http"
 	"os"
 	"strings"
 	"time"
-	"whois"
 )
 
 const (
@@ -160,45 +159,37 @@ func combineWords(prefixes, suffixes, tlds []string, single, onlySingle, hyphena
 type DomainResult struct {
 	domain     string
 	registered bool
-	addresses  []string
-	err        error
-	whois      []string
 }
 
 // Format DomainResult into string for output file
 func (dr DomainResult) String() string {
-	var err string
-	if dr.err == nil {
-		err = ""
-	} else {
-		err = fmt.Sprintf("%s", dr.err)
-	}
-	return fmt.Sprintf("%s\t%t\t%q\t%q\n",
-		dr.domain, dr.registered, dr.addresses, err)
+	return fmt.Sprintf("%s\t%t\n", dr.domain, dr.registered)
 }
 
-// TODO check against `dig +short CNAME tld.whois-servers.net`
-func whoisDomain(domain string) ([]string, error) {
-	w, err := whois.Dial("whois.iana.org:43")
+func hasNS(domain string) (bool, error) {
+	config, err := dns.ClientConfigFromFile("/etc/resolv.conf")
 	if err != nil {
-		return nil, err
+		return false, err
 	}
-	results, err := w.Query(domain)
+	c := new(dns.Client)
+	m := new(dns.Msg)
+	m.SetQuestion(domain+".", dns.TypeNS)
+	m.RecursionDesired = true
+	in, err := c.Exchange(m, config.Servers[0]+":"+config.Port)
 	if err != nil {
-		return nil, err
+		return false, err
 	}
-	return results, nil
+	return in.Rcode == dns.RcodeSuccess, nil
 }
-
-func checkWhoisResult(result []string)
 
 // Check if each domain is registered
 func checkDomains(in <-chan string, out chan<- DomainResult) {
 	for domain := range in {
-		addr, err := net.LookupHost(domain)
-		registered := err == nil
-		whois, err := whoisDomain(domain)
-		out <- DomainResult{domain, registered, addr, err, whois}
+		registered, err := hasNS(domain)
+		if err != nil {
+			fmt.Println(err)
+		}
+		out <- DomainResult{domain, registered}
 	}
 }
 
