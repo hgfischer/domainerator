@@ -1,16 +1,27 @@
 Domainerator
 ============
 
-Domainerator is an application written in Go that combines a wordlist and a list of TLDs to form domain names and check if they are not registered domains.
+Domainerator is an application written in Go that combines two wordlists (prefixes and suffixes) and a list of TLDs to form domain names and check their DNS status. It outputs a file with each combined domain name and the respective DNS status. 
 
-It was ported from a Ruby version made a few years ago that still can be found as a ruby gem, but it is too slow. This version made in Go is blazing fast and one of the reasons is that it can do checks in parallel. I was able to run a process that checked 110,695 domains in about 31 minutes using 200 goroutines in a MacBook Pro Late 2008 and returned 108,237 available domains.
+History
+-------
 
-Currently the check is done by resolving the domain apex. However, this method is not reliable since some registars answers with some default IP address even for unregistered domains (eg. .ws TLD). I have plans to add a whois check to it soon.
+Not a long one, but...
+
+I've developed it after getting tired of trying to find some good domain names available to be registered. 
+In the beginning it was a slow Ruby script that still can be found as a rubygem with the same name, and now I've ported it to Go and made a lot of improvements in the method used to check for availability and speed.
+
+Benchmark
+---------
+
+I was able to run a check with 2,288 domains in about 13 seconds using 100 goroutines in a MacBook Pro Late 2008!
 
 Instalation
-===========
+-----------
 
-To install domainerator you need to install Go and then run the following command in Unix-like systems:
+To install domainerator you need:
 
-	sudo go get github.com/hgfischer/domainerator
+1. Install Go
+2. Setup environment vars for Go
+3. Run `sudo go get github.com/hgfischer/domainerator`
 

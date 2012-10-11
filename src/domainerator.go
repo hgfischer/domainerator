@@ -6,10 +6,10 @@ import (
 	"fmt"
 	"github.com/miekg/dns"
 	"io/ioutil"
-	"net/http"
 	"os"
 	"strings"
 	"time"
+	"tld"
 )
 
 const (
@@ -22,8 +22,8 @@ var (
 	onlySingle  = flag.Bool("S", false, "Check only single words combined with TLDs")
 	itself      = flag.Bool("i", false, "Include words combined with itself")
 	hyphenate   = flag.Bool("H", false, "Include hyphenated combinations")
-	tldsCsv     = flag.String("tlds", "com,net,org", "TLDs to combine with")
-	dnsServers  = flag.String("dns", "", "Comma-separated list of DNS servers to talk to")
+	tldsCsv     = flag.String("tlds", "com,net,org,ca,co,cc,in,us,me,io,ws,de,eu", "TLDs to combine with")
+	dnsServers  = flag.String("dns", "8.8.8.8,8.8.4.4,4.2.2.1,4.2.2.2,4.2.2.3,4.2.2.4,4.2.2.5,4.2.2.6", "Comma-separated list of DNS servers to talk to")
 	concurrency = flag.Int("c", defaultConcurrency, "Number of concurrent threads doing checks")
 )
 
@@ -39,7 +39,7 @@ func usage() {
 		"Usage: domainerator [flags] [prefixes word list] [suffixes word list] [output file]\n")
 	fmt.Fprintf(os.Stderr, "\nFlags:\n")
 	flag.PrintDefaults()
-	os.Exit(2)
+	os.Exit(1)
 }
 
 // Remove duplicate strings from a slice
@@ -98,30 +98,6 @@ func parseTopLevelDomains(tldCsv string, accepted map[string]bool) ([]string, er
 	return tlds, nil
 }
 
-// Load known domain prefixes and TLDs from Mozilla
-func loadKnownTopLevelDomains() (tlds map[string]bool, err error) {
-	tlds = make(map[string]bool)
-	resp, err := http.Get(
-		"http://mxr.mozilla.org/mozilla-central/source/netwerk/dns/effective_tld_names.dat?raw=1")
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-	body, err := ioutil.ReadAll(resp.Body)
-	lines := strings.Split(string(body), "\n")
-	for _, s := range lines {
-		s = strings.TrimSpace(s)
-		if len(s) == 0 || strings.HasPrefix(s, "//") || strings.HasPrefix(s, "!") {
-			continue
-		}
-		if strings.HasPrefix(s, "*.") {
-			s = strings.Replace(s, "*.", "", 1)
-		}
-		tlds[s] = true
-	}
-	return
-}
-
 // Combine words and tlds to make the ordered domain list
 func combineWords(prefixes, suffixes, tlds []string, single, onlySingle, hyphenate, itself bool) []string {
 	domains := make([]string, 0)
@@ -159,21 +135,17 @@ func combineWords(prefixes, suffixes, tlds []string, single, onlySingle, hyphena
 }
 
 type DomainResult struct {
-	domain     string
-	registered bool
+	domain string
+	rCode  int
 }
 
 // Format DomainResult into string for output file
 func (dr DomainResult) String() string {
-	return fmt.Sprintf("%s\t%t\n", dr.domain, dr.registered)
+	return fmt.Sprintf("%s\t%s\n", dr.domain, dns.Rcode_str[dr.rCode])
 }
 
 // Returns true if domain has a Name Server associated
-func hasNS(domain, dnsServer string) (bool, error) {
-	config, err := dns.ClientConfigFromFile("/etc/resolv.conf")
-	if err != nil {
-		return false, err
-	}
+func queryNS(domain, dnsServer string) (int, error) {
 	c := new(dns.Client)
 	c.Net = "tcp"
 	c.ReadTimeout = time.Duration(4) * time.Second
@@ -181,33 +153,31 @@ func hasNS(domain, dnsServer string) (bool, error) {
 	c.Retry = true
 	c.Attempts = 3
 	m := new(dns.Msg)
-	m.SetQuestion(domain+".", dns.TypeNS)
+	m.SetQuestion(dns.Fqdn(domain), dns.TypeNS)
 	m.RecursionDesired = true
-	if len(dnsServer) == 0 {
-		dnsServer = config.Servers[0] + ":" + config.Port
-	}
-	in, err := c.Exchange(m, dnsServer)
+	in, err := c.Exchange(m, dnsServer+":53")
 	if err != nil {
-		return false, err
+		return dns.RcodeNameError, err
 	}
-	return in.Rcode == dns.RcodeSuccess, nil
+	return in.Rcode, err
 }
 
-// Check if each domain is registered
+// Check if each domain 
 func checkDomains(in <-chan string, out chan<- DomainResult, dnsServer string) {
 	for domain := range in {
-		var registered bool
+		var rCode int
 		var err error
+		// try 5 times before failing
 		for i := 0; i < 5; i++ {
-			registered, err = hasNS(domain, dnsServer)
+			rCode, err = queryNS(domain, dnsServer)
 			if err == nil {
 				break
 			}
-			fmt.Fprintf(os.Stderr, "\nRetrying %q in DNS %q...\n", domain, dnsServer)
 		}
 		if err == nil {
-			out <- DomainResult{domain, registered}
+			out <- DomainResult{domain, rCode}
 		} else {
+			fmt.Fprintf(os.Stderr, "\nFailed to check domain %q at DNS %q (%q)\n!", domain, dnsServer, err)
 			break
 		}
 	}
@@ -222,33 +192,30 @@ func main() {
 		flag.Usage()
 	}
 
-	fmt.Print("Loading TLDs list... ")
-	accepted, err := loadKnownTopLevelDomains()
-	if err != nil {
-		showErrorAndExit(err, 3)
-	}
-	fmt.Println("done.")
-
 	fmt.Print("Loading word lists.. ")
 	prefixes, err := loadWordListFile(flag.Arg(0))
 	if err != nil {
-		showErrorAndExit(err, 4)
+		showErrorAndExit(err, 10)
 	}
 	suffixes, err := loadWordListFile(flag.Arg(1))
 	if err != nil {
-		showErrorAndExit(err, 4)
+		showErrorAndExit(err, 11)
 	}
 	fmt.Println("done.")
 
-	tlds, err := parseTopLevelDomains(*tldsCsv, accepted)
+	tlds, err := parseTopLevelDomains(*tldsCsv, tld.List)
 	if err != nil {
-		showErrorAndExit(err, 5)
+		showErrorAndExit(err, 20)
+	}
+
+	if len(strings.TrimSpace(*dnsServers)) == 0 {
+		showErrorAndExit(errors.New("You need to specify a DNS server"), 30)
 	}
 
 	outputPath := flag.Arg(2)
 	outputFile, err := os.Create(outputPath)
 	if err != nil {
-		showErrorAndExit(err, 6)
+		showErrorAndExit(err, 40)
 	}
 	defer outputFile.Close()
 
@@ -263,17 +230,12 @@ func main() {
 	dnsServer := ""
 	curDns := 0
 
-	if len(*dnsServers) > 0 {
-		dnses = strings.Split(*dnsServers, ",")
-	}
-
+	dnses = strings.Split(*dnsServers, ",")
 	for i := 0; i < *concurrency; i++ {
-		if len(dnses) > 0 {
-			dnsServer = dnses[curDns]
-			curDns += 1
-			if curDns >= len(dnses) {
-				curDns = 0
-			}
+		dnsServer = dnses[curDns]
+		curDns += 1
+		if curDns >= len(dnses) {
+			curDns = 0
 		}
 		go checkDomains(pending, complete, dnsServer)
 	}
