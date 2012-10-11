@@ -1,7 +1,6 @@
 package main
 
 import (
-	"domainerator/tld"
 	"errors"
 	"flag"
 	"fmt"
@@ -203,7 +202,7 @@ func main() {
 	}
 	fmt.Println("done.")
 
-	tlds, err := parseTopLevelDomains(*tldsCsv, tld.List)
+	tlds, err := parseTopLevelDomains(*tldsCsv, acceptedTLDs)
 	if err != nil {
 		showErrorAndExit(err, 20)
 	}
