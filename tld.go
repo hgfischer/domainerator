@@ -1,6 +1,6 @@
-package tld
+package main
 
-var List = map[string]bool{
+var acceptedTLDs = map[string]bool{
 	"ac":     true,
 	"com.ac": true,
 	"edu.ac": true,
