@@ -27,6 +27,7 @@ var (
 	skipUTF8    = flag.Bool("no-utf8", true, "Skip combinations with UTF-8 characters")
 	publicCsv   = flag.String("psl", defaultPublicSuffixes, "Public domain suffixes to combine with")
 	dnsServers  = flag.String("dns", defaultDNSServers, "Comma-separated list of DNS servers to talk to")
+	maxLength   = flag.Int("L", 64, "Maximum length of generated domains")
 	concurrency = flag.Int("c", defaultConcurrency, "Number of concurrent threads doing checks")
 )
 
@@ -87,7 +88,7 @@ func main() {
 	defer outputFile.Close()
 
 	fmt.Print("Creating domain list... ")
-	domains := combineWords(prefixes, suffixes, psl, *single, *singleOnly, *hyphenate, *itself, *hacks)
+	domains := combineWords(prefixes, suffixes, psl, *single, *singleOnly, *hyphenate, *itself, *hacks, *maxLength)
 	if *skipUTF8 {
 		domains = filterUTF8(domains)
 	}
