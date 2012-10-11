@@ -1,6 +1,6 @@
 package main
 
-var acceptedTLDs = map[string]bool{
+var publicSuffixes = map[string]bool{
 	"ac":     true,
 	"com.ac": true,
 	"edu.ac": true,
