@@ -20,13 +20,3 @@ _cgo_export.*
 _testmain.go
 
 *.exe
-
-# Work files
-words
-domainerator
-test
-output
-domain*
-avail*
-prefix*
-suffix*
