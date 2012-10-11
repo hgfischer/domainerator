@@ -1,4 +1,13 @@
 
+1.6.0 / 2012-10-11 
+==================
+
+  * Fixed TLD/Public Suffix naming confusion
+  * Bigger default DNS server list
+  * Domain hacks support
+  * Flag to skip UTF-8 domains including UTF-8 public suffixes
+  * Flag to include all TLDs in the public domain suffix list into the check
+
 1.5.1 / 2012-10-11 
 ==================
 
