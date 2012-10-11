@@ -1,4 +1,9 @@
 
+1.5.1 / 2012-10-11 
+==================
+
+  * Fixed mess/confusion with workspace/packages/github
+
 1.5.0 / 2012-10-11 
 ==================
 
