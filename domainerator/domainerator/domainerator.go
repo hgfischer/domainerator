@@ -1,6 +1,7 @@
 package main
 
 import (
+	"domainerator/tld"
 	"errors"
 	"flag"
 	"fmt"
@@ -9,7 +10,6 @@ import (
 	"os"
 	"strings"
 	"time"
-	"tld"
 )
 
 const (
