@@ -1,4 +1,12 @@
 
+1.5.0 / 2012-10-11 
+==================
+
+  * Better README
+  * Embedded TLD list 
+  * Improvements in DNS check
+  * Output file now have domain and DNS answer status (NXDOMAIN == available)
+
 1.4.0 / 2012-10-10 
 ==================
 
