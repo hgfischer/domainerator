@@ -88,7 +88,7 @@ func combineWordAndPublicSuffixes(word string, psl []string, hacks bool) []strin
 }
 
 // Combine words and public suffixes to make the ordered domain list
-func combineWords(prefixes, suffixes, psl []string, single, singleOnly, hyphenate, itself bool, hacks bool) []string {
+func combineWords(prefixes, suffixes, psl []string, single, singleOnly, hyphenate, itself bool, hacks bool, maxLength int) []string {
 	domains := make([]string, 0)
 	if single || singleOnly {
 		for _, prefix := range prefixes {
@@ -112,8 +112,15 @@ func combineWords(prefixes, suffixes, psl []string, single, singleOnly, hyphenat
 		}
 	}
 	domains = removeDuplicates(domains)
-	sort.Strings(domains)
-	return domains
+	filtered := make([]string, 0)
+	for _, domain := range domains {
+		if len(domain) <= maxLength {
+			filtered = append(filtered, domain)
+		}
+	}
+
+	sort.Strings(filtered)
+	return filtered
 }
 
 func filterUTF8(domains []string) []string {
