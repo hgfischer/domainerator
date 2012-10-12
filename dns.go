@@ -51,6 +51,7 @@ func checkDomains(in chan string, out chan DomainResult, dnsServer string) {
 			out <- DomainResult{domain, rCode}
 		} else {
 			fmt.Fprintf(os.Stderr, "\nFailed to check domain %q at DNS %q (%q)!\n", domain, dnsServer, err)
+			out <- DomainResult{domain, dns.RcodeServerFailure}
 		}
 	}
 }
