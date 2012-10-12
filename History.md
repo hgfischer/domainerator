@@ -1,4 +1,9 @@
 
+1.6.3 / 2012-10-12 
+==================
+
+  * Bigger default TLDs and bug fix in domain hacks
+
 1.6.1 / 2012-10-11 
 ==================
 
