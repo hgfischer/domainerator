@@ -2,6 +2,7 @@
 1.6.3 / 2012-10-12 
 ==================
 
+  * Updated README and default list os public suffixes
   * Bigger default TLDs and bug fix in domain hacks
 
 1.6.2 / 2012-10-12 
