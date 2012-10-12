@@ -11,7 +11,7 @@ import (
 )
 
 const (
-	defaultPublicSuffixes = "com,net,org"
+	defaultPublicSuffixes = "com,co,net,us,org,info,tv,in,im,me,ca,pl,mobi,eu,so,co.in,com.br,be,de,ws,li,at,nl,re,ca"
 	defaultDNSServers     = "8.8.8.8,8.8.4.4,4.2.2.1,4.2.2.2,4.2.2.3,4.2.2.4,4.2.2.5,4.2.2.6,198.153.192.1,198.153.194.1,67.138.54.100,207.225.209.66"
 	defaultConcurrency    = 10
 )
