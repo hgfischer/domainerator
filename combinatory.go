@@ -80,7 +80,7 @@ func combineWordAndPublicSuffixes(word string, psl []string, hacks bool) []strin
 		if hacks {
 			last := strings.LastIndex(word, ps)
 			if last > 0 {
-				domains = append(domains, word[:last+1]+"."+ps)
+				domains = append(domains, word[:last]+"."+ps)
 			}
 		}
 	}
