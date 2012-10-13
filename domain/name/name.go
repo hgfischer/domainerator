@@ -38,7 +38,9 @@ func CombinePhraseAndPublicSuffixes(word string, psl []string, hacks bool) []str
 		if hacks {
 			if strings.HasSuffix(word, ps) {
 				last := strings.LastIndex(word, ps)
-				domains = append(domains, word[:last]+"."+ps)
+				if last > 0 {
+					domains = append(domains, word[:last]+"."+ps)
+				}
 			}
 		}
 	}
