@@ -4,6 +4,10 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"github.com/hgfischer/domainerator/domain/name"
+	"github.com/hgfischer/domainerator/domain/ns"
+	"github.com/hgfischer/domainerator/domain/query"
+	"github.com/hgfischer/golib/wordlist"
 	"os"
 	"runtime"
 	"strings"
@@ -19,7 +23,6 @@ const (
 // Command line options
 var (
 	single      = flag.Bool("s", false, "Also check single words")
-	singleOnly  = flag.Bool("S", false, "Check ONLY single words")
 	itself      = flag.Bool("i", false, "Include words combined with itself")
 	hyphenate   = flag.Bool("H", false, "Include hyphenated combinations")
 	hacks       = flag.Bool("k", false, "Enable domain hacks")
@@ -56,22 +59,22 @@ func main() {
 	}
 
 	fmt.Print("Loading word lists.. ")
-	prefixes, err := loadWordListFile(flag.Arg(0))
+	prefixes, err := wordlist.Load(flag.Arg(0))
 	if err != nil {
 		showErrorAndExit(err, 10)
 	}
-	suffixes, err := loadWordListFile(flag.Arg(1))
+	suffixes, err := wordlist.Load(flag.Arg(1))
 	if err != nil {
 		showErrorAndExit(err, 11)
 	}
 	fmt.Println("done.")
 
-	psl, err := parsePublicSuffixCsv(*publicCsv, publicSuffixes, *includeTLDs)
+	psl, err := name.ParsePublicSuffixCSV(*publicCsv, ns.PublicSuffixes, *includeTLDs)
 	if err != nil {
 		showErrorAndExit(err, 20)
 	}
 	if *skipUTF8 {
-		psl = filterUTF8(psl)
+		psl = wordlist.FilterUTF8(psl)
 	}
 
 	fmt.Printf("Public Suffixes: %s\n", strings.Join(psl, ", "))
@@ -88,15 +91,16 @@ func main() {
 	defer outputFile.Close()
 
 	fmt.Print("Creating domain list... ")
-	domains := combineWords(prefixes, suffixes, psl, *single, *singleOnly, *hyphenate, *itself, *hacks, *maxLength)
+	domains := name.Combine(prefixes, suffixes, psl, *single, *hyphenate, *itself, *hacks)
 	if *skipUTF8 {
-		domains = filterUTF8(domains)
+		domains = wordlist.FilterUTF8(domains)
 	}
+	domains = name.FilterMaxLength(domains, *maxLength)
 	fmt.Println("done.")
 
 	fmt.Println("Starting checks... ")
 	startTime := time.Now()
-	pending, complete := make(chan string), make(chan DomainResult)
+	pending, complete := make(chan string), make(chan query.Result)
 	var dnses []string
 	dnsServer := ""
 	curDns := 0
@@ -108,7 +112,7 @@ func main() {
 		if curDns >= len(dnses) {
 			curDns = 0
 		}
-		go checkDomains(pending, complete, dnsServer)
+		go query.CheckDomains(pending, complete, dnsServer)
 	}
 
 	go func() {

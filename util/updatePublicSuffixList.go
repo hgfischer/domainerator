@@ -41,8 +41,8 @@ func main() {
 		os.Exit(1)
 	}
 
-	fmt.Fprintf(os.Stdout, "package main\n\n")
-	fmt.Fprintf(os.Stdout, "var publicSuffixes = map[string]bool{\n")
+	fmt.Fprintf(os.Stdout, "package ns\n\n")
+	fmt.Fprintf(os.Stdout, "var PublicSuffixes = map[string]bool{\n")
 	for _, suffix := range suffixes {
 		fmt.Fprintf(os.Stdout, "\t%q: true,\n", suffix)
 	}

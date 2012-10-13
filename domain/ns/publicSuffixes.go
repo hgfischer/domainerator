@@ -1,6 +1,6 @@
-package main
+package ns
 
-var publicSuffixes = map[string]bool{
+var PublicSuffixes = map[string]bool{
 	"ac":     true,
 	"com.ac": true,
 	"edu.ac": true,
