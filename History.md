@@ -1,4 +1,10 @@
 
+1.6.4 / 2012-10-13 
+==================
+
+  * Refactoring to include tests
+  * Extraced wordlist functions to another package and tested all them
+
 1.6.3 / 2012-10-12 
 ==================
 
