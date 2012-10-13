@@ -15,7 +15,7 @@ import (
 )
 
 const (
-	defaultPublicSuffixes = "com,co,net,us,org,info,tv,in,im,me,ca,pl,mobi,eu,so,be,de,ws,li,at,nl,re,ca,es,it,nl,cc,tk,io"
+	defaultPublicSuffixes = "com,net,org,info,biz,in,us,me,co,ca,mobi,de,eu,ws,tk,es,it,nl,be"
 	defaultDNSServers     = "8.8.8.8,8.8.4.4,4.2.2.1,4.2.2.2,4.2.2.3,4.2.2.4,4.2.2.5,4.2.2.6,198.153.192.1,198.153.194.1,67.138.54.100,207.225.209.66"
 	defaultConcurrency    = 10
 )
@@ -43,7 +43,7 @@ func showErrorAndExit(err error, returnCode int) {
 // Print command line help and exit application
 func usage() {
 	fmt.Fprintf(os.Stderr,
-		"Usage: domainerator [flags] [prefixes word list] [suffixes word list] [output file]\n")
+		"Usage: domainerator [flags] [prefixes wordlist] [suffixes wordlist] [output file]\n")
 	fmt.Fprintf(os.Stderr, "\nFlags:\n")
 	flag.PrintDefaults()
 	os.Exit(1)
