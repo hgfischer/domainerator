@@ -1,4 +1,10 @@
 
+n.n.n / 2012-10-13 
+==================
+
+  * Changed default PS list
+  * Fixed domain hack generation or small words
+
 1.6.4 / 2012-10-13 
 ==================
 

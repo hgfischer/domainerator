@@ -32,6 +32,7 @@ var (
 	dnsServers  = flag.String("dns", defaultDNSServers, "Comma-separated list of DNS servers to talk to")
 	maxLength   = flag.Int("L", 64, "Maximum length of generated domains")
 	concurrency = flag.Int("c", defaultConcurrency, "Number of concurrent threads doing checks")
+	available   = flag.Bool("avail", true, "If true, output only available domains (NXDOMAIN) without DNS status code")
 )
 
 // Prints an error message to stderr and exist with a return code
@@ -127,7 +128,7 @@ func main() {
 	processed := 0
 	for r := range complete {
 		processed += 1
-		_, err := outputFile.WriteString(r.String())
+		_, err := outputFile.WriteString(r.String(*available))
 		if err != nil {
 			showErrorAndExit(err, 6)
 		}
