@@ -13,7 +13,10 @@ type Result struct {
 }
 
 // Format Result into string for output file
-func (dr Result) String() string {
+func (dr Result) String(simple bool) string {
+	if simple {
+		return fmt.Sprintf("%s\n", dr.domain)
+	}
 	return fmt.Sprintf("%s\t%s\n", dr.domain, dns.Rcode_str[dr.rCode])
 }
 

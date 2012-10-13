@@ -1,4 +1,11 @@
 
+1.6.5 / 2012-10-13 
+==================
+
+  * Included option to output only available domains
+  * Changed default PS list
+  * Fixed domain hack generation or small words
+
 1.6.4 / 2012-10-13 
 ==================
 

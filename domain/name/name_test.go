@@ -46,6 +46,15 @@ func TestCombinePhraseAndPublicSuffixes(t *testing.T) {
 	}
 }
 
+func TestCombinePhraseAndPublicSuffixesWithSmallPhrase(t *testing.T) {
+	psl := []string{"ex"}
+	expected := []string{"ex.ex"}
+	domains := CombinePhraseAndPublicSuffixes("ex", psl, true)
+	if !reflect.DeepEqual(expected, domains) {
+		t.Errorf(tests.ERR_FMT_EXPECTED_GOT, "CombineWordAndPublixSuffixes", expected, domains)
+	}
+}
+
 var (
 	prefixes = []string{"go", "py"}
 	suffixes = []string{"lang", "coder"}

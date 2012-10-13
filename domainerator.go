@@ -15,7 +15,7 @@ import (
 )
 
 const (
-	defaultPublicSuffixes = "com,co,net,us,org,info,tv,in,im,me,ca,pl,mobi,eu,so,be,de,ws,li,at,nl,re,ca,es,it,nl,cc,tk,io"
+	defaultPublicSuffixes = "com,net,org,info,biz,in,us,me,co,ca,mobi,de,eu,ws,tk,es,it,nl,be"
 	defaultDNSServers     = "8.8.8.8,8.8.4.4,4.2.2.1,4.2.2.2,4.2.2.3,4.2.2.4,4.2.2.5,4.2.2.6,198.153.192.1,198.153.194.1,67.138.54.100,207.225.209.66"
 	defaultConcurrency    = 10
 )
@@ -32,6 +32,7 @@ var (
 	dnsServers  = flag.String("dns", defaultDNSServers, "Comma-separated list of DNS servers to talk to")
 	maxLength   = flag.Int("L", 64, "Maximum length of generated domains")
 	concurrency = flag.Int("c", defaultConcurrency, "Number of concurrent threads doing checks")
+	available   = flag.Bool("avail", true, "If true, output only available domains (NXDOMAIN) without DNS status code")
 )
 
 // Prints an error message to stderr and exist with a return code
@@ -43,7 +44,7 @@ func showErrorAndExit(err error, returnCode int) {
 // Print command line help and exit application
 func usage() {
 	fmt.Fprintf(os.Stderr,
-		"Usage: domainerator [flags] [prefixes word list] [suffixes word list] [output file]\n")
+		"Usage: domainerator [flags] [prefixes wordlist] [suffixes wordlist] [output file]\n")
 	fmt.Fprintf(os.Stderr, "\nFlags:\n")
 	flag.PrintDefaults()
 	os.Exit(1)
@@ -127,7 +128,7 @@ func main() {
 	processed := 0
 	for r := range complete {
 		processed += 1
-		_, err := outputFile.WriteString(r.String())
+		_, err := outputFile.WriteString(r.String(*available))
 		if err != nil {
 			showErrorAndExit(err, 6)
 		}
