@@ -1,4 +1,4 @@
-package main
+package query
 
 import (
 	"fmt"
@@ -7,13 +7,13 @@ import (
 	"time"
 )
 
-type DomainResult struct {
+type Result struct {
 	domain string
 	rCode  int
 }
 
-// Format DomainResult into string for output file
-func (dr DomainResult) String() string {
+// Format Result into string for output file
+func (dr Result) String() string {
 	return fmt.Sprintf("%s\t%s\n", dr.domain, dns.Rcode_str[dr.rCode])
 }
 
@@ -36,7 +36,7 @@ func queryNS(domain, dnsServer string) (int, error) {
 }
 
 // Check if each domain 
-func checkDomains(in chan string, out chan DomainResult, dnsServer string) {
+func CheckDomains(in chan string, out chan Result, dnsServer string) {
 	for domain := range in {
 		var rCode int
 		var err error
@@ -48,10 +48,10 @@ func checkDomains(in chan string, out chan DomainResult, dnsServer string) {
 			}
 		}
 		if err == nil {
-			out <- DomainResult{domain, rCode}
+			out <- Result{domain, rCode}
 		} else {
 			fmt.Fprintf(os.Stderr, "\nFailed to check domain %q at DNS %q (%q)!\n", domain, dnsServer, err)
-			out <- DomainResult{domain, dns.RcodeServerFailure}
+			out <- Result{domain, dns.RcodeServerFailure}
 		}
 	}
 }
