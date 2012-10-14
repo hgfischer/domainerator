@@ -128,9 +128,11 @@ func main() {
 	processed := 0
 	for r := range complete {
 		processed += 1
-		_, err := outputFile.WriteString(r.String(*available))
-		if err != nil {
-			showErrorAndExit(err, 6)
+		if (*available && r.Available()) || !*available {
+			_, err := outputFile.WriteString(r.String(*available))
+			if err != nil {
+				showErrorAndExit(err, 6)
+			}
 		}
 		if processed == len(domains) {
 			break
