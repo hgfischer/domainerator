@@ -70,6 +70,10 @@ func main() {
 	}
 	fmt.Println("done.")
 
+	if len(prefixes) == 0 && len(suffixes) == 0 {
+		showErrorAndExit(errors.New("Empty wordlists"), 12)
+	}
+
 	psl, err := name.ParsePublicSuffixCSV(*publicCsv, ns.PublicSuffixes, *includeTLDs)
 	if err != nil {
 		showErrorAndExit(err, 20)
@@ -97,6 +101,7 @@ func main() {
 		domains = wordlist.FilterUTF8(domains)
 	}
 	domains = name.FilterMaxLength(domains, *maxLength)
+	domains = wordlist.RemoveDuplicates(domains)
 	fmt.Println("done.")
 
 	fmt.Println("Starting checks... ")

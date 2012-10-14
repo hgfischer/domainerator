@@ -21,3 +21,4 @@ _testmain.go
 
 *.exe
 src
+.DS_Store
