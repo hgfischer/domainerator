@@ -8,16 +8,21 @@ import (
 )
 
 type Result struct {
-	domain string
-	rCode  int
+	Domain string
+	Rcode  int
 }
 
 // Format Result into string for output file
 func (dr Result) String(simple bool) string {
 	if simple {
-		return fmt.Sprintf("%s\n", dr.domain)
+		return fmt.Sprintf("%s\n", dr.Domain)
 	}
-	return fmt.Sprintf("%s\t%s\n", dr.domain, dns.Rcode_str[dr.rCode])
+	return fmt.Sprintf("%s\t%s\n", dr.Domain, dns.Rcode_str[dr.Rcode])
+}
+
+// Return true if the domain is available (DNS NXDOMAIN)
+func (dr Result) Available() bool {
+	return dr.Rcode == dns.RcodeNameError
 }
 
 // Returns true if domain has a Name Server associated
