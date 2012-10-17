@@ -71,7 +71,7 @@ func TestCombineFull(t *testing.T) {
 		"pycoder.com", "pycoder.er", "pycod.er", "py-coder.com", "py-coder.er", "py-cod.er",
 	}
 	sort.Strings(expected)
-	words := Combine(prefixes, suffixes, psl, true, true, true, true)
+	words := Combine(prefixes, suffixes, psl, true, true, true, true, 3)
 	sort.Strings(words)
 	if !reflect.DeepEqual(expected, words) {
 		t.Errorf(tests.ERR_FMT_EXPECTED_GOT, "Combine", expected, words)
@@ -84,7 +84,7 @@ func TestCombineSimple(t *testing.T) {
 		"pylang.com", "pylang.er", "pycoder.com", "pycoder.er",
 	}
 	sort.Strings(expected)
-	words := Combine(prefixes, suffixes, psl, false, false, false, false)
+	words := Combine(prefixes, suffixes, psl, false, false, false, false, 3)
 	sort.Strings(words)
 	if !reflect.DeepEqual(expected, words) {
 		t.Errorf(tests.ERR_FMT_EXPECTED_GOT, "Combine", expected, words)
@@ -99,7 +99,7 @@ func TestCombineHyphenation(t *testing.T) {
 		"py-lang.com", "py-lang.er", "py-coder.com", "py-coder.er",
 	}
 	sort.Strings(expected)
-	words := Combine(prefixes, suffixes, psl, false, true, false, false)
+	words := Combine(prefixes, suffixes, psl, false, true, false, false, 3)
 	sort.Strings(words)
 	if !reflect.DeepEqual(expected, words) {
 		t.Errorf(tests.ERR_FMT_EXPECTED_GOT, "Combine", expected, words)
@@ -109,7 +109,7 @@ func TestCombineHyphenation(t *testing.T) {
 func TestCombinePrefixAndSuffix(t *testing.T) {
 	expected := []string{"prefixsuffix", "prefix-suffix"}
 	sort.Strings(expected)
-	words := CombinePrefixAndSuffix("prefix", "suffix", false, true)
+	words := CombinePrefixAndSuffix("prefix", "suffix", false, true, 3)
 	sort.Strings(words)
 	if !reflect.DeepEqual(expected, words) {
 		t.Errorf(tests.ERR_FMT_EXPECTED_GOT, "CombinePrefixAndSuffix", expected, words)
@@ -118,7 +118,7 @@ func TestCombinePrefixAndSuffix(t *testing.T) {
 
 func TestCombinePrefixAndSuffixWithoutHyphenation(t *testing.T) {
 	expected := []string{"prefixsuffix"}
-	words := CombinePrefixAndSuffix("prefix", "suffix", false, false)
+	words := CombinePrefixAndSuffix("prefix", "suffix", false, false, 3)
 	if !reflect.DeepEqual(expected, words) {
 		t.Errorf(tests.ERR_FMT_EXPECTED_GOT, "CombinePrefixAndSuffix", expected, words)
 	}
@@ -127,9 +127,28 @@ func TestCombinePrefixAndSuffixWithoutHyphenation(t *testing.T) {
 func TestCombinePrefixAndSuffixWithItself(t *testing.T) {
 	expected := []string{"itselfitself", "itself-itself"}
 	sort.Strings(expected)
-	words := CombinePrefixAndSuffix("itself", "itself", true, true)
+	words := CombinePrefixAndSuffix("itself", "itself", true, true, 3)
 	sort.Strings(words)
 	if !reflect.DeepEqual(expected, words) {
 		t.Errorf(tests.ERR_FMT_EXPECTED_GOT, "CombinePrefixAndSuffix", expected, words)
+	}
+}
+
+func TestCombinePrefixAndSuffixWithMinLength(t *testing.T) {
+	expected := []string{"a-b"}
+	sort.Strings(expected)
+	words := CombinePrefixAndSuffix("a", "b", true, true, 3)
+	sort.Strings(words)
+	if !reflect.DeepEqual(expected, words) {
+		t.Errorf(tests.ERR_FMT_EXPECTED_GOT, "CombinePrefixAndSuffix", expected, words)
+	}
+}
+
+func TestFilterStrictDomains(t *testing.T) {
+	expected := []string{"lalalala.com"}
+	domains := []string{"co.com.br", "us.com.br", "lalalala.com"}
+	domains = FilterStrictDomains(domains, accepted)
+	if !reflect.DeepEqual(expected, domains) {
+		t.Errorf(tests.ERR_FMT_EXPECTED_GOT, "FilterStrictDomains", expected, domains)
 	}
 }

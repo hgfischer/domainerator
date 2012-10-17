@@ -1,4 +1,11 @@
 
+1.6.8 / 2012-10-17 
+==================
+
+  * Add filtering of restricted domains
+  * Added minLength size limit
+  * Setup of Travis-CI
+
 1.6.7 / 2012-10-14 
 ==================
 
