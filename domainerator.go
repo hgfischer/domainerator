@@ -116,6 +116,10 @@ func main() {
 	dnsServer := ""
 	curDns := 0
 
+	if len(domains) == 0 {
+		showErrorAndExit(errors.New("I could not generate a single valid domain"), 50)
+	}
+
 	dnses = strings.Split(*dnsServers, ",")
 	for i := 0; i < *concurrency; i++ {
 		dnsServer = dnses[curDns]
