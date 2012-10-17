@@ -48,20 +48,26 @@ func CombinePhraseAndPublicSuffixes(word string, psl []string, hacks bool) []str
 }
 
 // Combine two words in all possible combinations with out without hyphenation. A suffix never comes before the prefix.
-func CombinePrefixAndSuffix(prefix, suffix string, itself, hyphenate bool) []string {
+func CombinePrefixAndSuffix(prefix, suffix string, itself, hyphenate bool, minLength int) []string {
 	output := make([]string, 0)
 	if prefix == suffix && !itself {
 		return output
 	}
-	output = append(output, prefix+suffix)
+	str := prefix + suffix
+	if len(str) >= minLength {
+		output = append(output, prefix+suffix)
+	}
 	if hyphenate {
-		output = append(output, prefix+"-"+suffix)
+		str := prefix + "-" + suffix
+		if len(str) >= minLength {
+			output = append(output, prefix+"-"+suffix)
+		}
 	}
 	return output
 }
 
 // Combine words and public suffixes to make the ordered domain list
-func Combine(prefixes, suffixes, psl []string, single, hyphenate, itself, hacks bool) []string {
+func Combine(prefixes, suffixes, psl []string, single, hyphenate, itself, hacks bool, minLength int) []string {
 	domains := make([]string, 0)
 	if single {
 		for _, prefix := range prefixes {
@@ -73,7 +79,7 @@ func Combine(prefixes, suffixes, psl []string, single, hyphenate, itself, hacks 
 	}
 	for _, prefix := range prefixes {
 		for _, suffix := range suffixes {
-			phrases := CombinePrefixAndSuffix(prefix, suffix, itself, hyphenate)
+			phrases := CombinePrefixAndSuffix(prefix, suffix, itself, hyphenate, minLength)
 			for _, phrase := range phrases {
 				domains = append(domains, CombinePhraseAndPublicSuffixes(phrase, psl, hacks)...)
 			}

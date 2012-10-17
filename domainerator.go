@@ -30,9 +30,11 @@ var (
 	skipUTF8    = flag.Bool("no-utf8", true, "Skip combinations with UTF-8 characters")
 	publicCsv   = flag.String("psl", defaultPublicSuffixes, "Public domain suffixes to combine with")
 	dnsServers  = flag.String("dns", defaultDNSServers, "Comma-separated list of DNS servers to talk to")
-	maxLength   = flag.Int("L", 64, "Maximum length of generated domains")
+	maxLength   = flag.Int("L", 64, "Maximum length of generated domains including public suffix")
+	minLength   = flag.Int("l", 3, "Minimum length of generated domains without public suffic")
 	concurrency = flag.Int("c", defaultConcurrency, "Number of concurrent threads doing checks")
 	available   = flag.Bool("avail", true, "If true, output only available domains (NXDOMAIN) without DNS status code")
+	strictMode  = flag.Bool("strict", true, "If true, filter some possibly prohibited domains (domain == tld, etc)")
 )
 
 // Prints an error message to stderr and exist with a return code
@@ -96,7 +98,7 @@ func main() {
 	defer outputFile.Close()
 
 	fmt.Print("Creating domain list... ")
-	domains := name.Combine(prefixes, suffixes, psl, *single, *hyphenate, *itself, *hacks)
+	domains := name.Combine(prefixes, suffixes, psl, *single, *hyphenate, *itself, *hacks, *minLength)
 	if *skipUTF8 {
 		domains = wordlist.FilterUTF8(domains)
 	}
