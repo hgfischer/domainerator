@@ -143,3 +143,12 @@ func TestCombinePrefixAndSuffixWithMinLength(t *testing.T) {
 		t.Errorf(tests.ERR_FMT_EXPECTED_GOT, "CombinePrefixAndSuffix", expected, words)
 	}
 }
+
+func TestFilterStrictDomains(t *testing.T) {
+	expected := []string{"lalalala.com"}
+	domains := []string{"co.com.br", "us.com.br", "lalalala.com"}
+	domains = FilterStrictDomains(domains, accepted)
+	if !reflect.DeepEqual(expected, domains) {
+		t.Errorf(tests.ERR_FMT_EXPECTED_GOT, "FilterStrictDomains", expected, domains)
+	}
+}

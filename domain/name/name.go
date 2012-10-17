@@ -98,3 +98,16 @@ func FilterMaxLength(domains []string, maxLength int) []string {
 	}
 	return output
 }
+
+// Filter out domains possibly forbidden by registrars
+func FilterStrictDomains(domains []string, publicSuffixes map[string]bool) []string {
+	output := make([]string, 0)
+	for _, domain := range domains {
+		first := strings.Index(domain, ".")
+		cleanedDomain := domain[:first]
+		if _, ok := publicSuffixes[cleanedDomain]; !ok {
+			output = append(output, domain)
+		}
+	}
+	return output
+}

@@ -103,6 +103,9 @@ func main() {
 		domains = wordlist.FilterUTF8(domains)
 	}
 	domains = name.FilterMaxLength(domains, *maxLength)
+	if *strictMode {
+		domains = name.FilterStrictDomains(domains, ns.PublicSuffixes)
+	}
 	domains = wordlist.RemoveDuplicates(domains)
 	fmt.Println("done.")
 
