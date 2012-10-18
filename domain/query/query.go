@@ -3,7 +3,6 @@ package query
 import (
 	"fmt"
 	"github.com/miekg/dns"
-	"net"
 	"os"
 	"time"
 )
