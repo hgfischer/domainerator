@@ -17,7 +17,6 @@ import (
 const (
 	defaultPublicSuffixes = "com,net,org,info,biz,in,us,me,co,ca,mobi,de,eu,ws,tk,es,it,nl,be"
 	defaultDNSServers     = "8.8.8.8,8.8.4.4,4.2.2.1,4.2.2.2,4.2.2.3,4.2.2.4,4.2.2.5,4.2.2.6,198.153.192.1,198.153.194.1,67.138.54.100,207.225.209.66"
-	defaultConcurrency    = 10
 )
 
 // Command line options
@@ -32,7 +31,7 @@ var (
 	dnsServers  = flag.String("dns", defaultDNSServers, "Comma-separated list of DNS servers to talk to")
 	maxLength   = flag.Int("L", 64, "Maximum length of generated domains including public suffix")
 	minLength   = flag.Int("l", 3, "Minimum length of generated domains without public suffic")
-	concurrency = flag.Int("c", defaultConcurrency, "Number of concurrent threads doing checks")
+	concurrency = flag.Int("c", 50, "Number of concurrent threads doing checks")
 	available   = flag.Bool("avail", true, "If true, output only available domains (NXDOMAIN) without DNS status code")
 	strictMode  = flag.Bool("strict", true, "If true, filter some possibly prohibited domains (domain == tld, etc)")
 )
@@ -151,17 +150,15 @@ func main() {
 		if processed == len(domains) {
 			break
 		}
-		if processed%10 == 0 {
-			elapsed := time.Since(startTime)
-			etaSecs := elapsed.Seconds() * float64(len(domains)) / float64(processed)
-			eta := time.Duration(etaSecs) * time.Second
-			out := fmt.Sprintf(fmtStr, processed, len(domains), elapsed, eta, runtime.NumGoroutine())
-			fmt.Print(out)
-			if len(out) < outLen {
-				fmt.Print(strings.Repeat(" ", outLen-len(out)))
-			} else {
-				outLen = len(out)
-			}
+		elapsed := time.Since(startTime)
+		etaSecs := elapsed.Seconds() * float64(len(domains)) / float64(processed)
+		eta := time.Duration(etaSecs) * time.Second
+		out := fmt.Sprintf(fmtStr, processed, len(domains), elapsed, eta, runtime.NumGoroutine())
+		fmt.Print(out)
+		if len(out) < outLen {
+			fmt.Print(strings.Repeat(" ", outLen-len(out)))
+		} else {
+			outLen = len(out)
 		}
 	}
 

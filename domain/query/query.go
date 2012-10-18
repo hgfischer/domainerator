@@ -3,6 +3,7 @@ package query
 import (
 	"fmt"
 	"github.com/miekg/dns"
+	"net"
 	"os"
 	"time"
 )
@@ -28,17 +29,17 @@ func (dr Result) Available() bool {
 // Returns true if domain has a Name Server associated
 func queryNS(domain, dnsServer string) (int, error) {
 	c := new(dns.Client)
+	c.ReadTimeout = time.Duration(10 * time.Second)
+	c.WriteTimeout = time.Duration(10 * time.Second)
 	c.Net = "tcp"
-	c.ReadTimeout = time.Duration(4) * time.Second
-	c.WriteTimeout = c.ReadTimeout
 	c.Retry = true
-	c.Attempts = 3
+	c.Attempts = 5
 	m := new(dns.Msg)
-	m.SetQuestion(dns.Fqdn(domain), dns.TypeNS)
 	m.RecursionDesired = true
+	m.SetQuestion(dns.Fqdn(domain), dns.TypeNS)
 	in, err := c.Exchange(m, dnsServer+":53")
 	if err != nil {
-		return dns.RcodeNameError, err
+		return dns.RcodeRefused, err
 	}
 	return in.Rcode, err
 }
@@ -48,18 +49,10 @@ func CheckDomains(in chan string, out chan Result, dnsServer string) {
 	for domain := range in {
 		var rCode int
 		var err error
-		// try 5 times before failing
-		for i := 0; i < 5; i++ {
-			rCode, err = queryNS(domain, dnsServer)
-			if err == nil {
-				break
-			}
-		}
-		if err == nil {
-			out <- Result{domain, rCode}
-		} else {
+		rCode, err = queryNS(domain, dnsServer)
+		if err != nil {
 			fmt.Fprintf(os.Stderr, "\nFailed to check domain %q at DNS %q (%q)!\n", domain, dnsServer, err)
-			out <- Result{domain, dns.RcodeServerFailure}
 		}
+		out <- Result{domain, rCode}
 	}
 }
