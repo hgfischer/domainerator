@@ -28,7 +28,7 @@ func (dr Result) Available() bool {
 }
 
 // Returns true if domain has a Name Server associated
-func queryNS(id int, domain string, dnsServers []string) (int, error) {
+func queryNS(domain string, dnsServers []string) (int, error) {
 	c := new(dns.Client)
 	c.ReadTimeout = time.Duration(4 * time.Second)
 	c.WriteTimeout = time.Duration(4 * time.Second)
@@ -38,23 +38,24 @@ func queryNS(id int, domain string, dnsServers []string) (int, error) {
 	m := new(dns.Msg)
 	m.RecursionDesired = true
 	var err error
-	for i := 0; i < 3; i++ {
+	for i := 0; i < 4; i++ {
 		dnsServer := dnsServers[rand.Intn(len(dnsServers))]
 		m.SetQuestion(dns.Fqdn(domain), dns.TypeNS)
 		in, err := c.Exchange(m, dnsServer+":53")
 		if err == nil {
 			return in.Rcode, nil
 		}
+		time.Sleep(time.Duration(1 * time.Second))
 	}
 	return dns.RcodeRefused, err
 }
 
 // Check if each domain 
-func CheckDomains(id int, in chan string, out chan Result, dnsServers []string) {
+func CheckDomains(in chan string, out chan Result, dnsServers []string) {
 	for domain := range in {
 		var rCode int
 		var err error
-		rCode, err = queryNS(id, domain, dnsServers)
+		rCode, err = queryNS(domain, dnsServers)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "\nFailed to check domain %q: %q!\n", domain, err)
 		}
