@@ -30,6 +30,14 @@ func ParsePublicSuffixCSV(csv string, accepted map[string]bool, includeTLDs bool
 	return psl, nil
 }
 
+// Parse a CSV string into a cleaned slice of strings
+func ParseDNSCSV(csv string) []string {
+	psl := wordlist.FromCSV(csv)
+	psl = wordlist.RemoveDuplicates(psl)
+	sort.Strings(psl)
+	return psl
+}
+
 // Combine phrases (combined words) with public suffixes, with out without domain hacks and return a slice of strings
 func CombinePhraseAndPublicSuffixes(word string, psl []string, hacks bool) []string {
 	domains := make([]string, 0)
