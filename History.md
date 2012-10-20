@@ -1,4 +1,13 @@
 
+1.7.0 / 2012-10-20 
+==================
+
+  * Added support for protocol
+  * Changed list of default public suffix and timeouts
+  * Improved checks
+  * removed unused import
+  * Bug fix in retries
+
 1.6.9 / 2012-10-17 
 ==================
 
