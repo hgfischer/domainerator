@@ -15,24 +15,24 @@ import (
 )
 
 const (
-	defaultPublicSuffixes = "com,net,org,info,biz,in,us,me,co,ca,mobi,de,eu,ws,tk,es,it,nl,be"
+	defaultPublicSuffixes = "com,net,org,biz,info,mobi,name,tel,us,in,me,co,ca,de,eu,ws,it,be,at,ch,cz,li,nl,pl,re,so,wf,im,no"
 	defaultDNSServers     = "8.8.8.8,8.8.4.4,4.2.2.1,4.2.2.2,4.2.2.3,4.2.2.4,4.2.2.5,4.2.2.6,198.153.192.1,198.153.194.1,67.138.54.100,207.225.209.66"
-	defaultConcurrency    = 10
 )
 
 // Command line options
 var (
-	single      = flag.Bool("s", false, "Also check single words")
-	itself      = flag.Bool("i", false, "Include words combined with itself")
-	hyphenate   = flag.Bool("H", false, "Include hyphenated combinations")
-	hacks       = flag.Bool("k", false, "Enable domain hacks")
+	single      = flag.Bool("single", true, "Also check single words")
+	itself      = flag.Bool("itself", false, "Include words combined with itself")
+	hyphenate   = flag.Bool("hyphen", false, "Include hyphenated combinations")
+	hacks       = flag.Bool("hacks", true, "Enable domain hacks")
 	includeTLDs = flag.Bool("tlds", false, "Include all TLDs in public domain suffix list")
-	skipUTF8    = flag.Bool("no-utf8", true, "Skip combinations with UTF-8 characters")
-	publicCsv   = flag.String("psl", defaultPublicSuffixes, "Public domain suffixes to combine with")
-	dnsServers  = flag.String("dns", defaultDNSServers, "Comma-separated list of DNS servers to talk to")
-	maxLength   = flag.Int("L", 64, "Maximum length of generated domains including public suffix")
-	minLength   = flag.Int("l", 3, "Minimum length of generated domains without public suffic")
-	concurrency = flag.Int("c", defaultConcurrency, "Number of concurrent threads doing checks")
+	includeUTF8 = flag.Bool("utf8", false, "Include combinations with UTF-8 characters")
+	publicCSV   = flag.String("ps", defaultPublicSuffixes, "Public domain suffixes to combine with")
+	dnsCSV      = flag.String("dns", defaultDNSServers, "Comma-separated list of DNS servers to talk to")
+	protocol    = flag.String("proto", "UDP", "Protocol (udp/tcp)")
+	maxLength   = flag.Int("maxlen", 64, "Maximum length of generated domains including public suffix")
+	minLength   = flag.Int("minlen", 3, "Minimum length of generated domains without public suffic")
+	concurrency = flag.Int("c", 50, "Number of concurrent threads doing checks")
 	available   = flag.Bool("avail", true, "If true, output only available domains (NXDOMAIN) without DNS status code")
 	strictMode  = flag.Bool("strict", true, "If true, filter some possibly prohibited domains (domain == tld, etc)")
 )
@@ -76,17 +76,18 @@ func main() {
 		showErrorAndExit(errors.New("Empty wordlists"), 12)
 	}
 
-	psl, err := name.ParsePublicSuffixCSV(*publicCsv, ns.PublicSuffixes, *includeTLDs)
+	psl, err := name.ParsePublicSuffixCSV(*publicCSV, ns.PublicSuffixes, *includeTLDs)
 	if err != nil {
 		showErrorAndExit(err, 20)
 	}
-	if *skipUTF8 {
+	if !*includeUTF8 {
 		psl = wordlist.FilterUTF8(psl)
 	}
 
 	fmt.Printf("Public Suffixes: %s\n", strings.Join(psl, ", "))
 
-	if len(strings.TrimSpace(*dnsServers)) == 0 {
+	dnsServers := name.ParseDNSCSV(*dnsCSV)
+	if len(dnsServers) == 0 {
 		showErrorAndExit(errors.New("You need to specify a DNS server"), 30)
 	}
 
@@ -99,7 +100,7 @@ func main() {
 
 	fmt.Print("Creating domain list... ")
 	domains := name.Combine(prefixes, suffixes, psl, *single, *hyphenate, *itself, *hacks, *minLength)
-	if *skipUTF8 {
+	if !*includeUTF8 {
 		domains = wordlist.FilterUTF8(domains)
 	}
 	domains = name.FilterMaxLength(domains, *maxLength)
@@ -112,22 +113,13 @@ func main() {
 	fmt.Println("Starting checks... ")
 	startTime := time.Now()
 	pending, complete := make(chan string), make(chan query.Result)
-	var dnses []string
-	dnsServer := ""
-	curDns := 0
 
 	if len(domains) == 0 {
 		showErrorAndExit(errors.New("I could not generate a single valid domain"), 50)
 	}
 
-	dnses = strings.Split(*dnsServers, ",")
 	for i := 0; i < *concurrency; i++ {
-		dnsServer = dnses[curDns]
-		curDns += 1
-		if curDns >= len(dnses) {
-			curDns = 0
-		}
-		go query.CheckDomains(pending, complete, dnsServer)
+		go query.CheckDomains(pending, complete, dnsServers, *protocol)
 	}
 
 	go func() {
@@ -151,17 +143,15 @@ func main() {
 		if processed == len(domains) {
 			break
 		}
-		if processed%10 == 0 {
-			elapsed := time.Since(startTime)
-			etaSecs := elapsed.Seconds() * float64(len(domains)) / float64(processed)
-			eta := time.Duration(etaSecs) * time.Second
-			out := fmt.Sprintf(fmtStr, processed, len(domains), elapsed, eta, runtime.NumGoroutine())
-			fmt.Print(out)
-			if len(out) < outLen {
-				fmt.Print(strings.Repeat(" ", outLen-len(out)))
-			} else {
-				outLen = len(out)
-			}
+		elapsed := time.Since(startTime)
+		etaSecs := elapsed.Seconds() * float64(len(domains)) / float64(processed)
+		eta := time.Duration(etaSecs) * time.Second
+		out := fmt.Sprintf(fmtStr, processed, len(domains), elapsed, eta, runtime.NumGoroutine())
+		fmt.Print(out)
+		if len(out) < outLen {
+			fmt.Print(strings.Repeat(" ", outLen-len(out)))
+		} else {
+			outLen = len(out)
 		}
 	}
 
