@@ -1,4 +1,9 @@
 
+1.7.1 / 2012-10-20 
+==================
+
+  * Fixed bug with default protocol setting and added a check
+
 1.7.0 / 2012-10-20 
 ==================
 
