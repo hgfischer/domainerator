@@ -43,7 +43,7 @@ func queryNS(domain string, dnsServers []string, proto string) (int, error) {
 		m.SetQuestion(dns.Fqdn(domain), dns.TypeNS)
 		in, err := c.Exchange(m, dnsServer+":53")
 		if err == nil {
-			return in.Rcode, nil
+			return in.Rcode, err
 		}
 		time.Sleep(time.Duration(1 * time.Second))
 	}

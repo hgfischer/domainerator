@@ -29,7 +29,7 @@ var (
 	includeUTF8 = flag.Bool("utf8", false, "Include combinations with UTF-8 characters")
 	publicCSV   = flag.String("ps", defaultPublicSuffixes, "Public domain suffixes to combine with")
 	dnsCSV      = flag.String("dns", defaultDNSServers, "Comma-separated list of DNS servers to talk to")
-	protocol    = flag.String("proto", "UDP", "Protocol (udp/tcp)")
+	protocol    = flag.String("proto", "udp", "Protocol (udp/tcp)")
 	maxLength   = flag.Int("maxlen", 64, "Maximum length of generated domains including public suffix")
 	minLength   = flag.Int("minlen", 3, "Minimum length of generated domains without public suffic")
 	concurrency = flag.Int("c", 50, "Number of concurrent threads doing checks")
@@ -89,6 +89,11 @@ func main() {
 	dnsServers := name.ParseDNSCSV(*dnsCSV)
 	if len(dnsServers) == 0 {
 		showErrorAndExit(errors.New("You need to specify a DNS server"), 30)
+	}
+
+	if *protocol != "tcp" && *protocol != "udp" {
+		errmsg := fmt.Sprintf("Unknown protocol: %q (should be \"udp\" or \"tcp\"", *protocol)
+		showErrorAndExit(errors.New(errmsg), 35)
 	}
 
 	outputPath := flag.Arg(2)
