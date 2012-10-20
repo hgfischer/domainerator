@@ -28,11 +28,11 @@ func (dr Result) Available() bool {
 }
 
 // Returns true if domain has a Name Server associated
-func queryNS(domain string, dnsServers []string) (int, error) {
+func queryNS(domain string, dnsServers []string, proto string) (int, error) {
 	c := new(dns.Client)
 	c.ReadTimeout = time.Duration(4 * time.Second)
 	c.WriteTimeout = time.Duration(4 * time.Second)
-	c.Net = "udp"
+	c.Net = proto
 	c.Retry = true
 	c.Attempts = 3
 	m := new(dns.Msg)
@@ -51,11 +51,11 @@ func queryNS(domain string, dnsServers []string) (int, error) {
 }
 
 // Check if each domain 
-func CheckDomains(in chan string, out chan Result, dnsServers []string) {
+func CheckDomains(in chan string, out chan Result, dnsServers []string, proto string) {
 	for domain := range in {
 		var rCode int
 		var err error
-		rCode, err = queryNS(domain, dnsServers)
+		rCode, err = queryNS(domain, dnsServers, proto)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "\nFailed to check domain %q: %q!\n", domain, err)
 		}

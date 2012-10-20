@@ -29,6 +29,7 @@ var (
 	includeUTF8 = flag.Bool("utf8", false, "Include combinations with UTF-8 characters")
 	publicCSV   = flag.String("ps", defaultPublicSuffixes, "Public domain suffixes to combine with")
 	dnsCSV      = flag.String("dns", defaultDNSServers, "Comma-separated list of DNS servers to talk to")
+	protocol    = flag.String("proto", "UDP", "Protocol (udp/tcp)")
 	maxLength   = flag.Int("maxlen", 64, "Maximum length of generated domains including public suffix")
 	minLength   = flag.Int("minlen", 3, "Minimum length of generated domains without public suffic")
 	concurrency = flag.Int("c", 50, "Number of concurrent threads doing checks")
@@ -118,7 +119,7 @@ func main() {
 	}
 
 	for i := 0; i < *concurrency; i++ {
-		go query.CheckDomains(pending, complete, dnsServers)
+		go query.CheckDomains(pending, complete, dnsServers, *protocol)
 	}
 
 	go func() {
