@@ -25,6 +25,7 @@ var (
 	itself      = flag.Bool("itself", false, "Include words combined with itself")
 	hyphenate   = flag.Bool("hyphen", false, "Include hyphenated combinations")
 	hacks       = flag.Bool("hacks", true, "Enable domain hacks")
+	fuse        = flag.Bool("fuse", true, "Fuse words if letters match (ex.: ab + bc = abbc => abc")
 	includeTLDs = flag.Bool("tlds", false, "Include all TLDs in public domain suffix list")
 	includeUTF8 = flag.Bool("utf8", false, "Include combinations with UTF-8 characters")
 	publicCSV   = flag.String("ps", defaultPublicSuffixes, "Public domain suffixes to combine with")
@@ -104,7 +105,7 @@ func main() {
 	defer outputFile.Close()
 
 	fmt.Print("Creating domain list... ")
-	domains := name.Combine(prefixes, suffixes, psl, *single, *hyphenate, *itself, *hacks, *minLength)
+	domains := name.Combine(prefixes, suffixes, psl, *single, *hyphenate, *itself, *hacks, *fuse, *minLength)
 	if !*includeUTF8 {
 		domains = wordlist.FilterUTF8(domains)
 	}
