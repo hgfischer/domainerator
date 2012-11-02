@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"github.com/miekg/dns"
 	"math/rand"
-	"os"
 	"time"
 )
 
@@ -19,7 +18,7 @@ func (dr Result) String(simple bool) string {
 	if simple {
 		return fmt.Sprintf("%s\n", dr.Domain)
 	}
-	return fmt.Sprintf("%s\t%s\t%q\n", dr.Domain, dns.Rcode_str[dr.Rcode], dr.err)
+	return fmt.Sprintf("%s\t%s\t%q\t\n", dr.Domain, dns.Rcode_str[dr.Rcode], dr.err)
 }
 
 // Return true if the domain is available (DNS NXDOMAIN)
@@ -30,35 +29,33 @@ func (dr Result) Available() bool {
 // Returns true if domain has a Name Server associated
 func queryNS(domain string, dnsServers []string, proto string) (int, error) {
 	c := new(dns.Client)
-	c.ReadTimeout = time.Duration(4 * time.Second)
-	c.WriteTimeout = time.Duration(4 * time.Second)
+	c.ReadTimeout = time.Duration(2 * time.Second)
+	c.WriteTimeout = time.Duration(2 * time.Second)
 	c.Net = proto
-	c.Retry = true
-	c.Attempts = 3
 	m := new(dns.Msg)
 	m.RecursionDesired = true
-	var err error
-	for i := 0; i < 4; i++ {
-		dnsServer := dnsServers[rand.Intn(len(dnsServers))]
-		m.SetQuestion(dns.Fqdn(domain), dns.TypeNS)
-		in, err := c.Exchange(m, dnsServer+":53")
-		if err == nil {
-			return in.Rcode, err
-		}
-		time.Sleep(time.Duration(1 * time.Second))
+	dnsServer := dnsServers[rand.Intn(len(dnsServers))]
+	m.SetQuestion(dns.Fqdn(domain), dns.TypeNS)
+	in, err := c.Exchange(m, dnsServer+":53")
+	if err == nil {
+		return in.Rcode, err
 	}
 	return dns.RcodeRefused, err
 }
 
 // Check if each domain 
-func CheckDomains(in chan string, out chan Result, dnsServers []string, proto string) {
-	for domain := range in {
-		var rCode int
-		var err error
-		rCode, err = queryNS(domain, dnsServers, proto)
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "\nFailed to check domain %q: %q!\n", domain, err)
+func CheckDomains(id int, in, retries chan string, out chan Result, dnsServers []string, proto string) {
+	for {
+		var domain string
+		select {
+		case domain = <-in:
+		case domain = <-retries:
 		}
-		out <- Result{domain, rCode, err}
+		rCode, err := queryNS(domain, dnsServers, proto)
+		if err != nil {
+			retries <- domain
+		} else {
+			out <- Result{domain, rCode, err}
+		}
 	}
 }
