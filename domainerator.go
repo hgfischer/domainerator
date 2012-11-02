@@ -53,30 +53,35 @@ func usage() {
 	os.Exit(1)
 }
 
-// MAIN
-func main() {
+func loadWordList(file string) (list []string) {
+	list, err := wordlist.Load(file)
+	if err != nil {
+		showErrorAndExit(err, 10)
+	}
+	return
+}
+
+func loadWordLists(prefixFile, suffixFile string) (prefixes, suffixes []string) {
+	fmt.Print("Loading word lists.. ")
+	prefixes = loadWordList(prefixFile)
+	suffixes = loadWordList(suffixFile)
+	if len(prefixes) == 0 && len(suffixes) == 0 {
+		showErrorAndExit(errors.New("Empty wordlists"), 12)
+	}
+	fmt.Println("done.")
+	return
+}
+
+func loadFlags() {
 	flag.Usage = usage
 	flag.Parse()
 	if flag.NArg() != 3 {
 		fmt.Fprintf(os.Stderr, "Error: Missing some word list file path and/or output file path\n")
 		flag.Usage()
 	}
+}
 
-	fmt.Print("Loading word lists.. ")
-	prefixes, err := wordlist.Load(flag.Arg(0))
-	if err != nil {
-		showErrorAndExit(err, 10)
-	}
-	suffixes, err := wordlist.Load(flag.Arg(1))
-	if err != nil {
-		showErrorAndExit(err, 11)
-	}
-	fmt.Println("done.")
-
-	if len(prefixes) == 0 && len(suffixes) == 0 {
-		showErrorAndExit(errors.New("Empty wordlists"), 12)
-	}
-
+func loadPublicSuffixList() (psl []string) {
 	psl, err := name.ParsePublicSuffixCSV(*publicCSV, ns.PublicSuffixes, *includeTLDs)
 	if err != nil {
 		showErrorAndExit(err, 20)
@@ -84,28 +89,36 @@ func main() {
 	if !*includeUTF8 {
 		psl = wordlist.FilterUTF8(psl)
 	}
-
 	fmt.Printf("Public Suffixes: %s\n", strings.Join(psl, ", "))
+	return
+}
 
-	dnsServers := name.ParseDNSCSV(*dnsCSV)
+func loadDNSServers() (dnsServers []string) {
+	dnsServers = name.ParseDNSCSV(*dnsCSV)
 	if len(dnsServers) == 0 {
 		showErrorAndExit(errors.New("You need to specify a DNS server"), 30)
 	}
+	return
+}
 
+func checkProtocol() {
 	if *protocol != "tcp" && *protocol != "udp" {
 		errmsg := fmt.Sprintf("Unknown protocol: %q (should be \"udp\" or \"tcp\"", *protocol)
 		showErrorAndExit(errors.New(errmsg), 35)
 	}
+}
 
-	outputPath := flag.Arg(2)
+func setupOutputFile(outputPath string) (outputFile *os.File) {
 	outputFile, err := os.Create(outputPath)
 	if err != nil {
 		showErrorAndExit(err, 40)
 	}
-	defer outputFile.Close()
+	return
+}
 
+func createDomainList(prefixes, suffixes, psl []string) (domains []string) {
 	fmt.Print("Creating domain list... ")
-	domains := name.Combine(prefixes, suffixes, psl, *single, *hyphenate, *itself, *hacks, *fuse, *minLength)
+	domains = name.Combine(prefixes, suffixes, psl, *single, *hyphenate, *itself, *hacks, *fuse, *minLength)
 	if !*includeUTF8 {
 		domains = wordlist.FilterUTF8(domains)
 	}
@@ -115,19 +128,51 @@ func main() {
 	}
 	domains = wordlist.RemoveDuplicates(domains)
 	fmt.Println("done.")
-
-	fmt.Println("Starting checks... ")
-	startTime := time.Now()
-	pending, complete := make(chan string), make(chan query.Result)
-
 	if len(domains) == 0 {
 		showErrorAndExit(errors.New("I could not generate a single valid domain"), 50)
 	}
+	return
+}
 
+func printFeedback(startTime time.Time, processed, total int) {
+	fmtStr := "\rChecked %d of %d domains. Elapsed %s. ETA %s. Goroutines: %d\033[K"
+	elapsed := time.Since(startTime)
+	etaSecs := elapsed.Seconds() * float64(total) / float64(processed)
+	eta := time.Duration(etaSecs) * time.Second
+	out := fmt.Sprintf(fmtStr, processed, total, elapsed, eta, runtime.NumGoroutine())
+	fmt.Print(out)
+}
+
+func saveDomainResult(outputFile *os.File, r query.Result, available bool) {
+	if (available && r.Available()) || !available {
+		_, err := outputFile.WriteString(r.String(available))
+		if err != nil {
+			showErrorAndExit(err, 6)
+		}
+	}
+}
+
+// MAIN
+func main() {
+	loadFlags()
+	prefixes, suffixes := loadWordLists(flag.Arg(0), flag.Arg(1))
+	psl := loadPublicSuffixList()
+	dnsServers := loadDNSServers()
+	checkProtocol()
+	outputFile := setupOutputFile(flag.Arg(2))
+	defer outputFile.Close()
+	domains := createDomainList(prefixes, suffixes, psl)
+	pending, retries, complete := make(chan string), make(chan string), make(chan query.Result)
+
+	fmt.Println("Starting checks... ")
+	startTime := time.Now()
+
+	// start checks
 	for i := 0; i < *concurrency; i++ {
-		go query.CheckDomains(pending, complete, dnsServers, *protocol)
+		go query.CheckDomains(i, pending, retries, complete, dnsServers, *protocol)
 	}
 
+	// send domains
 	go func() {
 		for _, domain := range domains {
 			pending <- domain
@@ -135,31 +180,15 @@ func main() {
 		close(pending)
 	}()
 
-	fmtStr := "\rChecked %d of %d domains. Elapsed %s. ETA %s. Goroutines: %d"
-	outLen := 0
-	processed := 0
+	// save results and print feedback
+	wrote := 0
 	for r := range complete {
-		processed += 1
-		if (*available && r.Available()) || !*available {
-			_, err := outputFile.WriteString(r.String(*available))
-			if err != nil {
-				showErrorAndExit(err, 6)
-			}
-		}
-		if processed == len(domains) {
-			break
-		}
-		elapsed := time.Since(startTime)
-		etaSecs := elapsed.Seconds() * float64(len(domains)) / float64(processed)
-		eta := time.Duration(etaSecs) * time.Second
-		out := fmt.Sprintf(fmtStr, processed, len(domains), elapsed, eta, runtime.NumGoroutine())
-		fmt.Print(out)
-		if len(out) < outLen {
-			fmt.Print(strings.Repeat(" ", outLen-len(out)))
-		} else {
-			outLen = len(out)
+		saveDomainResult(outputFile, r, *available)
+		wrote += 1
+		printFeedback(startTime, wrote, len(domains))
+		if wrote == len(domains) {
+			close(complete)
 		}
 	}
-
 	fmt.Println("\nDone.")
 }
