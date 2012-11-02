@@ -1,4 +1,10 @@
 
+1.8.0 / 2012-11-02 
+==================
+
+  * Retries are now processed in a second channel
+  * Refactored entire main function to be more readable
+
 1.7.2 / 2012-10-28 
 ==================
 
