@@ -18,7 +18,7 @@ func (dr Result) String(simple bool) string {
 	if simple {
 		return fmt.Sprintf("%s\n", dr.Domain)
 	}
-	return fmt.Sprintf("%s\t%s\t%q\t\n", dr.Domain, dns.Rcode_str[dr.Rcode], dr.err)
+	return fmt.Sprintf("%s\t%s\t%q\t\n", dr.Domain, dns.RcodeToString[dr.Rcode], dr.err)
 }
 
 // Return true if the domain is available (DNS NXDOMAIN)
@@ -36,14 +36,14 @@ func queryNS(domain string, dnsServers []string, proto string) (int, error) {
 	m.RecursionDesired = true
 	dnsServer := dnsServers[rand.Intn(len(dnsServers))]
 	m.SetQuestion(dns.Fqdn(domain), dns.TypeNS)
-	in, err := c.Exchange(m, dnsServer+":53")
+	in, _, err := c.Exchange(m, dnsServer+":53")
 	if err == nil {
 		return in.Rcode, err
 	}
 	return dns.RcodeRefused, err
 }
 
-// Check if each domain 
+// Check if each domain
 func CheckDomains(id int, in, retries chan string, out chan Result, dnsServers []string, proto string) {
 	for {
 		var domain string
