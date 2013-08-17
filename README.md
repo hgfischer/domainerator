@@ -1,6 +1,6 @@
 # Domainerator
 
-Domainerator was my first Go application. That combines two wordlists (prefixes and suffixes) and a list of TLDs to form domain names and check their DNS status. It outputs a file with each combined domain name and the respective DNS status. 
+Domainerator was my first Go application. It combines two wordlists (prefixes and suffixes) and a list of TLDs to form domain names and check their DNS status. It outputs a file with each combined domain name and the respective DNS status. 
 
 ## History
 
