@@ -1,10 +1,11 @@
 package wordlist
 
 import (
-	"github.com/hgfischer/golib/tests"
 	"io/ioutil"
 	"reflect"
 	"testing"
+
+	"github.com/hgfischer/domainerator/tests"
 )
 
 func TestTrimWords(t *testing.T) {
