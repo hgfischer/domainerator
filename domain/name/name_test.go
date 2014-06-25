@@ -1,10 +1,11 @@
 package name
 
 import (
-	"github.com/hgfischer/golib/tests"
 	"reflect"
 	"sort"
 	"testing"
+
+	"github.com/hgfischer/domainerator/tests"
 )
 
 var (

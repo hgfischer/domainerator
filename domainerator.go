@@ -4,14 +4,15 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"github.com/hgfischer/domainerator/domain/name"
-	"github.com/hgfischer/domainerator/domain/ns"
-	"github.com/hgfischer/domainerator/domain/query"
-	"github.com/hgfischer/golib/wordlist"
 	"os"
 	"runtime"
 	"strings"
 	"time"
+
+	"github.com/hgfischer/domainerator/domain/name"
+	"github.com/hgfischer/domainerator/domain/ns"
+	"github.com/hgfischer/domainerator/domain/query"
+	"github.com/hgfischer/domainerator/wordlist"
 )
 
 const (

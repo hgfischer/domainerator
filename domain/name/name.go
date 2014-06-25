@@ -3,10 +3,11 @@ package name
 import (
 	"errors"
 	"fmt"
-	"github.com/hgfischer/golib/wordlist"
 	"sort"
 	"strings"
 	"unicode/utf8"
+
+	"github.com/hgfischer/domainerator/wordlist"
 )
 
 // Parse a CSV string into a cleaned slice of strings
@@ -104,7 +105,7 @@ func Combine(prefixes, suffixes, psl []string, single, hyphenate, itself, hacks,
 	return domains
 }
 
-// Filter domains surpasing the maxLengh limit. 
+// Filter domains surpasing the maxLengh limit.
 func FilterMaxLength(domains []string, maxLength int) []string {
 	output := make([]string, 0)
 	for _, domain := range domains {
