@@ -1,13 +1,17 @@
+[![Build Status](https://drone.io/github.com/hgfischer/domainerator/status.png)](https://drone.io/github.com/hgfischer/domainerator/latest)
+
 # Domainerator
 
-Domainerator was my first Go application. It combines two wordlists (prefixes and suffixes) and a list of TLDs to form domain names and check their DNS status. It outputs a file with each combined domain name and the respective DNS status. 
+Domainerator was my first Go application. It combines two wordlists (prefixes and suffixes) and a list of TLDs to form 
+domain names and check their DNS status. It outputs a file with each combined domain name and the respective DNS status. 
 
 ## History
 
 Not a long one, but...
 
 I've developed it after getting tired of trying to find some good domain names available to be registered. 
-In the beginning it was a slow Ruby script that still can be found as a rubygem with the same name, and now I've ported it to Go and made a lot of improvements in the method used to check for availability and speed.
+In the beginning it was a slow Ruby script that still can be found as a rubygem with the same name, and now 
+I've ported it to Go and made a lot of improvements in the method used to check for availability and speed.
 
 ## Benchmark
 
