@@ -8,13 +8,14 @@ import (
 	"strings"
 )
 
+// PublicSuffixListURL is the URL where we read current TLD names
 const (
-	PS_URL = "http://mxr.mozilla.org/mozilla-central/source/netwerk/dns/effective_tld_names.dat?raw=1"
+	PublicSuffixListURL = "http://mxr.mozilla.org/mozilla-central/source/netwerk/dns/effective_tld_names.dat?raw=1"
 )
 
 // Load known public suffix list (http://publicsuffix.org)
 func loadPublicSuffixList() (suffixes []string, err error) {
-	resp, err := http.Get(PS_URL)
+	resp, err := http.Get(PublicSuffixListURL)
 	if err != nil {
 		return nil, err
 	}

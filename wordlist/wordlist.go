@@ -7,7 +7,7 @@ import (
 	"unicode/utf8"
 )
 
-// Trim spaces for each word in a wordlist
+// TrimWords spaces for each word in a wordlist
 func TrimWords(words []string) []string {
 	for key, word := range words {
 		words[key] = strings.Replace(word, " ", "", -1)
@@ -27,9 +27,9 @@ func Load(filePath string) ([]string, error) {
 	return words, nil
 }
 
-// Remove empty words from the word list
+// FilterEmptyWords remove empty words from the word list
 func FilterEmptyWords(words []string) []string {
-	filtered := make([]string, 0)
+	var filtered []string
 	for _, word := range words {
 		if len(word) > 0 {
 			filtered = append(filtered, word)
@@ -38,7 +38,7 @@ func FilterEmptyWords(words []string) []string {
 	return filtered
 }
 
-// Remove duplicate strings from a slice
+// RemoveDuplicates remove duplicate strings from a slice
 func RemoveDuplicates(words []string) []string {
 	m := map[string]bool{}
 	cleaned := []string{}
@@ -51,9 +51,9 @@ func RemoveDuplicates(words []string) []string {
 	return cleaned
 }
 
-// Remove words with UTF8 encoded characters
+// FilterUTF8 remove words with UTF8 encoded characters
 func FilterUTF8(words []string) []string {
-	filtered := make([]string, 0)
+	var filtered []string
 	for _, word := range words {
 		if utf8.RuneCountInString(word) == len(word) {
 			filtered = append(filtered, word)
@@ -62,7 +62,7 @@ func FilterUTF8(words []string) []string {
 	return filtered
 }
 
-// Parse a CSV string into a cleaned slice of strings
+// FromCSV parse a CSV string into a cleaned slice of strings
 func FromCSV(csv string) []string {
 	csv = strings.TrimSpace(csv)
 	words := strings.Split(csv, ",")

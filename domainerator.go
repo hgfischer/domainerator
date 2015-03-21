@@ -185,7 +185,7 @@ func main() {
 	wrote := 0
 	for r := range complete {
 		saveDomainResult(outputFile, r, *available)
-		wrote += 1
+		wrote++
 		printFeedback(startTime, wrote, len(domains))
 		if wrote == len(domains) {
 			close(complete)

@@ -2,11 +2,13 @@ package query
 
 import (
 	"fmt"
-	"github.com/miekg/dns"
 	"math/rand"
 	"time"
+
+	"github.com/miekg/dns"
 )
 
+// Result represent a DNS query result
 type Result struct {
 	Domain string
 	Rcode  int
@@ -21,7 +23,7 @@ func (dr Result) String(simple bool) string {
 	return fmt.Sprintf("%s\t%s\t%q\t\n", dr.Domain, dns.RcodeToString[dr.Rcode], dr.err)
 }
 
-// Return true if the domain is available (DNS NXDOMAIN)
+// Available return true if the domain is available (DNS NXDOMAIN)
 func (dr Result) Available() bool {
 	return dr.Rcode == dns.RcodeNameError
 }
@@ -43,7 +45,7 @@ func queryNS(domain string, dnsServers []string, proto string) (int, error) {
 	return dns.RcodeRefused, err
 }
 
-// Check if each domain
+// CheckDomains check if each domain
 func CheckDomains(id int, in, retries chan string, out chan Result, dnsServers []string, proto string) {
 	for {
 		var domain string

@@ -1,7 +1,6 @@
 package name
 
 import (
-	"errors"
 	"fmt"
 	"sort"
 	"strings"
@@ -10,17 +9,17 @@ import (
 	"github.com/hgfischer/domainerator/wordlist"
 )
 
-// Parse a CSV string into a cleaned slice of strings
+// ParsePublicSuffixCSV parse a CSV string into a cleaned slice of strings
 func ParsePublicSuffixCSV(csv string, accepted map[string]bool, includeTLDs bool) ([]string, error) {
 	psl := wordlist.FromCSV(csv)
 	for _, ps := range psl {
 		_, ok := accepted[ps]
 		if !ok {
-			return nil, errors.New(fmt.Sprintf("Public Suffix %q is unknown", ps))
+			return nil, fmt.Errorf("Public Suffix %q is unknown", ps)
 		}
 	}
 	if includeTLDs {
-		for ps, _ := range accepted {
+		for ps := range accepted {
 			if !strings.Contains(ps, ".") {
 				psl = append(psl, ps)
 			}
@@ -31,7 +30,7 @@ func ParsePublicSuffixCSV(csv string, accepted map[string]bool, includeTLDs bool
 	return psl, nil
 }
 
-// Parse a CSV string into a cleaned slice of strings
+// ParseDNSCSV parse a CSV string into a cleaned slice of strings
 func ParseDNSCSV(csv string) []string {
 	psl := wordlist.FromCSV(csv)
 	psl = wordlist.RemoveDuplicates(psl)
@@ -39,9 +38,10 @@ func ParseDNSCSV(csv string) []string {
 	return psl
 }
 
-// Combine phrases (combined words) with public suffixes, with out without domain hacks and return a slice of strings
+// CombinePhraseAndPublicSuffixes combine phrases (combined words) with public suffixes, with out without domain hacks
+// and return a slice of strings
 func CombinePhraseAndPublicSuffixes(word string, psl []string, hacks bool) []string {
-	domains := make([]string, 0)
+	var domains []string
 	for _, ps := range psl {
 		domains = append(domains, word+"."+ps)
 		if hacks {
@@ -56,9 +56,10 @@ func CombinePhraseAndPublicSuffixes(word string, psl []string, hacks bool) []str
 	return domains
 }
 
-// Combine two words in all possible combinations with out without hyphenation. A suffix never comes before the prefix.
+// CombinePrefixAndSuffix combine two words in all possible combinations with out without hyphenation. A suffix never
+// comes before the prefix.
 func CombinePrefixAndSuffix(prefix, suffix string, itself, hyphenate, fuse bool, minLength int) []string {
-	output := make([]string, 0)
+	var output []string
 	if prefix == suffix && !itself {
 		return output
 	}
@@ -85,7 +86,7 @@ func CombinePrefixAndSuffix(prefix, suffix string, itself, hyphenate, fuse bool,
 
 // Combine words and public suffixes to make the ordered domain list
 func Combine(prefixes, suffixes, psl []string, single, hyphenate, itself, hacks, fuse bool, minLength int) []string {
-	domains := make([]string, 0)
+	var domains []string
 	if single {
 		for _, prefix := range prefixes {
 			domains = append(domains, CombinePhraseAndPublicSuffixes(prefix, psl, hacks)...)
@@ -105,9 +106,9 @@ func Combine(prefixes, suffixes, psl []string, single, hyphenate, itself, hacks,
 	return domains
 }
 
-// Filter domains surpasing the maxLengh limit.
+// FilterMaxLength filter domains surpasing the maxLengh limit.
 func FilterMaxLength(domains []string, maxLength int) []string {
-	output := make([]string, 0)
+	var output []string
 	for _, domain := range domains {
 		if utf8.RuneCountInString(domain) <= maxLength {
 			output = append(output, domain)
@@ -116,9 +117,9 @@ func FilterMaxLength(domains []string, maxLength int) []string {
 	return output
 }
 
-// Filter out domains possibly forbidden by registrars
+// FilterStrictDomains filter out domains possibly forbidden by registrars
 func FilterStrictDomains(domains []string, publicSuffixes map[string]bool) []string {
-	output := make([]string, 0)
+	var output []string
 	for _, domain := range domains {
 		first := strings.Index(domain, ".")
 		cleanedDomain := domain[:first]

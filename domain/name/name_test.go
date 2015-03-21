@@ -23,10 +23,10 @@ func TestParsePublicSuffixCSV(t *testing.T) {
 	sort.Strings(expected)
 	psl, err := ParsePublicSuffixCSV(csv, accepted, true)
 	if err != nil {
-		t.Fatalf(tests.ERR_FMT_EXPECTED_GOT, "ParsePublicSuffixCSV", "No Error", err)
+		t.Fatalf(tests.ErrFmtExpectedGot, "ParsePublicSuffixCSV", "No Error", err)
 	}
 	if !reflect.DeepEqual(psl, expected) {
-		t.Errorf(tests.ERR_FMT_EXPECTED_GOT, "ParsePublicSuffixCSV", expected, psl)
+		t.Errorf(tests.ErrFmtExpectedGot, "ParsePublicSuffixCSV", expected, psl)
 	}
 }
 
@@ -34,7 +34,7 @@ func TestParsePublicSuffixCSVForUnknownSuffix(t *testing.T) {
 	csv := "com,net,org,unk"
 	_, err := ParsePublicSuffixCSV(csv, accepted, false)
 	if err == nil {
-		t.Errorf(tests.ERR_FMT_EXPECTED_GOT, "ParsePublicSuffixCSV", "Unknown Public Suffix Error", "No Error")
+		t.Errorf(tests.ErrFmtExpectedGot, "ParsePublicSuffixCSV", "Unknown Public Suffix Error", "No Error")
 	}
 }
 
@@ -43,7 +43,7 @@ func TestCombinePhraseAndPublicSuffixes(t *testing.T) {
 	expected := []string{"index.ex", "ind.ex", "index.nd", "index.com"}
 	domains := CombinePhraseAndPublicSuffixes("index", psl, true)
 	if !reflect.DeepEqual(expected, domains) {
-		t.Errorf(tests.ERR_FMT_EXPECTED_GOT, "CombineWordAndPublixSuffixes", expected, domains)
+		t.Errorf(tests.ErrFmtExpectedGot, "CombineWordAndPublixSuffixes", expected, domains)
 	}
 }
 
@@ -52,7 +52,7 @@ func TestCombinePhraseAndPublicSuffixesWithSmallPhrase(t *testing.T) {
 	expected := []string{"ex.ex"}
 	domains := CombinePhraseAndPublicSuffixes("ex", psl, true)
 	if !reflect.DeepEqual(expected, domains) {
-		t.Errorf(tests.ERR_FMT_EXPECTED_GOT, "CombineWordAndPublixSuffixes", expected, domains)
+		t.Errorf(tests.ErrFmtExpectedGot, "CombineWordAndPublixSuffixes", expected, domains)
 	}
 }
 
@@ -75,7 +75,7 @@ func TestCombineFull(t *testing.T) {
 	words := Combine(prefixes, suffixes, psl, true, true, true, true, false, 3)
 	sort.Strings(words)
 	if !reflect.DeepEqual(expected, words) {
-		t.Errorf(tests.ERR_FMT_EXPECTED_GOT, "Combine", expected, words)
+		t.Errorf(tests.ErrFmtExpectedGot, "Combine", expected, words)
 	}
 }
 
@@ -88,7 +88,7 @@ func TestCombineSimple(t *testing.T) {
 	words := Combine(prefixes, suffixes, psl, false, false, false, false, false, 3)
 	sort.Strings(words)
 	if !reflect.DeepEqual(expected, words) {
-		t.Errorf(tests.ERR_FMT_EXPECTED_GOT, "Combine", expected, words)
+		t.Errorf(tests.ErrFmtExpectedGot, "Combine", expected, words)
 	}
 }
 
@@ -103,7 +103,7 @@ func TestCombineHyphenation(t *testing.T) {
 	words := Combine(prefixes, suffixes, psl, false, true, false, false, false, 3)
 	sort.Strings(words)
 	if !reflect.DeepEqual(expected, words) {
-		t.Errorf(tests.ERR_FMT_EXPECTED_GOT, "Combine", expected, words)
+		t.Errorf(tests.ErrFmtExpectedGot, "Combine", expected, words)
 	}
 }
 
@@ -113,7 +113,7 @@ func TestCombinePrefixAndSuffix(t *testing.T) {
 	words := CombinePrefixAndSuffix("prefix", "suffix", false, true, false, 3)
 	sort.Strings(words)
 	if !reflect.DeepEqual(expected, words) {
-		t.Errorf(tests.ERR_FMT_EXPECTED_GOT, "CombinePrefixAndSuffix", expected, words)
+		t.Errorf(tests.ErrFmtExpectedGot, "CombinePrefixAndSuffix", expected, words)
 	}
 }
 
@@ -121,7 +121,7 @@ func TestCombinePrefixAndSuffixWithoutHyphenation(t *testing.T) {
 	expected := []string{"prefixsuffix"}
 	words := CombinePrefixAndSuffix("prefix", "suffix", false, false, false, 3)
 	if !reflect.DeepEqual(expected, words) {
-		t.Errorf(tests.ERR_FMT_EXPECTED_GOT, "CombinePrefixAndSuffix", expected, words)
+		t.Errorf(tests.ErrFmtExpectedGot, "CombinePrefixAndSuffix", expected, words)
 	}
 }
 
@@ -131,7 +131,7 @@ func TestCombinePrefixAndSuffixWithItself(t *testing.T) {
 	words := CombinePrefixAndSuffix("itself", "itself", true, true, false, 3)
 	sort.Strings(words)
 	if !reflect.DeepEqual(expected, words) {
-		t.Errorf(tests.ERR_FMT_EXPECTED_GOT, "CombinePrefixAndSuffix", expected, words)
+		t.Errorf(tests.ErrFmtExpectedGot, "CombinePrefixAndSuffix", expected, words)
 	}
 }
 
@@ -141,7 +141,7 @@ func TestCombinePrefixAndSuffixWithFusion(t *testing.T) {
 	words := CombinePrefixAndSuffix("fusion", "nation", false, false, true, 3)
 	sort.Strings(words)
 	if !reflect.DeepEqual(expected, words) {
-		t.Errorf(tests.ERR_FMT_EXPECTED_GOT, "CombinePrefixAndSuffix", expected, words)
+		t.Errorf(tests.ErrFmtExpectedGot, "CombinePrefixAndSuffix", expected, words)
 	}
 }
 
@@ -151,7 +151,7 @@ func TestCombinePrefixAndSuffixWithFusionLatestTwo(t *testing.T) {
 	words := CombinePrefixAndSuffix("flamingo", "gorilla", false, false, true, 3)
 	sort.Strings(words)
 	if !reflect.DeepEqual(expected, words) {
-		t.Errorf(tests.ERR_FMT_EXPECTED_GOT, "CombinePrefixAndSuffix", expected, words)
+		t.Errorf(tests.ErrFmtExpectedGot, "CombinePrefixAndSuffix", expected, words)
 	}
 }
 
@@ -161,7 +161,7 @@ func TestCombinePrefixAndSuffixWithMinLength(t *testing.T) {
 	words := CombinePrefixAndSuffix("a", "b", true, true, false, 3)
 	sort.Strings(words)
 	if !reflect.DeepEqual(expected, words) {
-		t.Errorf(tests.ERR_FMT_EXPECTED_GOT, "CombinePrefixAndSuffix", expected, words)
+		t.Errorf(tests.ErrFmtExpectedGot, "CombinePrefixAndSuffix", expected, words)
 	}
 }
 
@@ -170,6 +170,6 @@ func TestFilterStrictDomains(t *testing.T) {
 	domains := []string{"co.com.br", "us.com.br", "lalalala.com"}
 	domains = FilterStrictDomains(domains, accepted)
 	if !reflect.DeepEqual(expected, domains) {
-		t.Errorf(tests.ERR_FMT_EXPECTED_GOT, "FilterStrictDomains", expected, domains)
+		t.Errorf(tests.ErrFmtExpectedGot, "FilterStrictDomains", expected, domains)
 	}
 }
