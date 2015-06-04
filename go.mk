@@ -2,7 +2,7 @@
 #
 # Copyright (c) 2015, Herbert G. Fischer
 # All rights reserved.
-# 
+#
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions are met:
 #     * Redistributions of source code must retain the above copyright
@@ -13,7 +13,7 @@
 #     * Neither the name of the organization nor the
 #       names of its contributors may be used to endorse or promote products
 #       derived from this software without specific prior written permission.
-# 
+#
 # THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
 # ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
 # WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
@@ -40,7 +40,7 @@ endif
 
 ifndef GOPATH
 $(error ERROR!! GOPATH must be declared. Check [http://golang.org/doc/code.html#GOPATH])
-else 
+else
 export GOPATH=$(LOCALGOPATH)
 endif
 
@@ -118,16 +118,16 @@ vet: $(VET) ; @for src in $(GOSOURCES); do go tool vet $$src; done
 lint: $(LINT) ; @for src in $(GOSOURCES); do golint $$src || exit 1; done
 
 .PHONY: fmt
-fmt: @go fmt
+fmt: ; @go fmt
 
 .PHONY: test
-test: @go test -v ./...
+test: ; @go test -v ./...
 
 .PHONY: race
-race: @for pkg in $(GOPKGS); do go test -v -race $$pkg || exit 1; done
+race: ; @for pkg in $(GOPKGS); do go test -v -race $$pkg || exit 1; done
 
 .PHONY: deps
-deps: @go get -u -v -t ./...
+deps: ; @go get -u -v -t ./...
 
 .PHONY: cover
 cover: $(COVER)
@@ -144,12 +144,13 @@ cover: $(COVER)
 ##########################################################################################
 
 .PHONY: savegodeps
-savegodeps: $(GODEP)
-	$(GODEP) save ./...
+savegodeps: $(GODEP) ; $(GODEP) save ./...
 
 .PHONY: restoregodeps
-restoregodeps: $(GODEP)
-	$(GODEP) restore
+restoregodeps: $(GODEP) ; $(GODEP) restore
+
+.PHONY: updategodeps
+updategodeps: $(GODEP) ; $(GODEP) update ./...
 
 ##########################################################################################
 ## Make utilities
