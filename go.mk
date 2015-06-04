@@ -25,15 +25,27 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-APPBIN      := $(shell basename $(PWD))
+APPBIN      := $(basename $(PWD))
 GOSOURCES   := $(shell find . -type f -name '*.go')
 GOPKGS      := $(shell go list ./...)
 GOPKG       := $(shell go list)
 COVERAGEOUT := coverage.out
 COVERAGETMP := coverage.tmp
+GODEPPATH   := $(PWD)/Godeps/_workspace
+LOCALGOPATH := $(GODEPPATH):$(GOPATH)
 
 ifndef GOBIN
 export GOBIN := $(GOPATH)/bin
+endif
+
+ifndef GOPATH
+$(error ERROR!! GOPATH must be declared. Check [http://golang.org/doc/code.html#GOPATH])
+else 
+export GOPATH=$(LOCALGOPATH)
+endif
+
+ifeq ($(shell go list ./... | grep -q '^_'; echo $$?), 0)
+$(error ERROR!! This directory should be at $(GOPATH)/src/$(REPO)]
 endif
 
 ##########################################################################################
@@ -47,32 +59,16 @@ $(APPBIN): gomkbuild
 ##########################################################################################
 
 .PHONY: gomkbuild
-gomkbuild: goenvcheck $(GOSOURCES) ; @go build 
+gomkbuild:  $(GOSOURCES) ; @go build
 
 .PHONY: gomkxbuild
 gomkxbuild: ; $(GOX) 
 
 .PHONY: gomkclean
-gomkclean: goenvcheck
+gomkclean: 
 	@go clean
 	@rm -f $(APPBIN)_*_386 $(APPBIN)_*_amd64 $(APPBIN)_*_arm $(APPBIN)_*.exe
 	@rm -f $(COVERAGEOUT) $(COVERAGETMP)
-
-##########################################################################################
-## Go Environment Checks
-##########################################################################################
-.PHONY: gopath goenvcheck
-
-goenvcheck: gopath
-	@exit 0
-
-gopath:
-ifndef GOPATH
-	$(error ERROR!! GOPATH must be declared. Check [http://golang.org/doc/code.html#GOPATH])
-endif
-ifeq ($(shell go list ./... | grep -q '^_'; echo $$?), 0)
-	$(error ERROR!! This directory should be at $(GOPATH)/src/$(REPO)]
-endif
 
 ##########################################################################################
 ## Go tools
@@ -95,23 +91,25 @@ STRINGER  := $(GOTOOLDIR)/stringer
 VET       := $(GOTOOLDIR)/vet
 GOX       := $(GOBIN)/gox
 LINT      := $(GOBIN)/lint
+GODEP     := $(GOBIN)/godep
 
-$(BENCHCMP)  : goenvcheck ; @go get -v golang.org/x/tools/cmd/benchcmp
-$(CALLGRAPH) : goenvcheck ; @go get -v golang.org/x/tools/cmd/callgraph
-$(COVER)     : goenvcheck ; @go get -v golang.org/x/tools/cmd/cover
-$(DIGRAPH)   : goenvcheck ; @go get -v golang.org/x/tools/cmd/digraph
-$(EG)        : goenvcheck ; @go get -v golang.org/x/tools/cmd/eg
-$(GODEX)     : goenvcheck ; @go get -v golang.org/x/tools/cmd/godex
-$(GODOC)     : goenvcheck ; @go get -v golang.org/x/tools/cmd/godoc
-$(GOIMPORTS) : goenvcheck ; @go get -v golang.org/x/tools/cmd/goimports
-$(GOMVPKG)   : goenvcheck ; @go get -v golang.org/x/tools/cmd/gomvpkgs
-$(GOTYPE)    : goenvcheck ; @go get -v golang.org/x/tools/cmd/gotype
-$(ORACLE)    : goenvcheck ; @go get -v golang.org/x/tools/cmd/oracle
-$(SSADUMP)   : goenvcheck ; @go get -v golang.org/x/tools/cmd/ssadump
-$(STRINGER)  : goenvcheck ; @go get -v golang.org/x/tools/cmd/stringer
-$(VET)       : goenvcheck ; @go get -v golang.org/x/tools/cmd/vet
-$(LINT)      : goenvcheck ; @go get -v github.com/golang/lint/golint
-$(GOX)       : goenvcheck ; @go get -v github.com/mitchellh/gox
+$(BENCHCMP)  : ; @go get -v golang.org/x/tools/cmd/benchcmp
+$(CALLGRAPH) : ; @go get -v golang.org/x/tools/cmd/callgraph
+$(COVER)     : ; @go get -v golang.org/x/tools/cmd/cover
+$(DIGRAPH)   : ; @go get -v golang.org/x/tools/cmd/digraph
+$(EG)        : ; @go get -v golang.org/x/tools/cmd/eg
+$(GODEX)     : ; @go get -v golang.org/x/tools/cmd/godex
+$(GODOC)     : ; @go get -v golang.org/x/tools/cmd/godoc
+$(GOIMPORTS) : ; @go get -v golang.org/x/tools/cmd/goimports
+$(GOMVPKG)   : ; @go get -v golang.org/x/tools/cmd/gomvpkgs
+$(GOTYPE)    : ; @go get -v golang.org/x/tools/cmd/gotype
+$(ORACLE)    : ; @go get -v golang.org/x/tools/cmd/oracle
+$(SSADUMP)   : ; @go get -v golang.org/x/tools/cmd/ssadump
+$(STRINGER)  : ; @go get -v golang.org/x/tools/cmd/stringer
+$(VET)       : ; @go get -v golang.org/x/tools/cmd/vet
+$(LINT)      : ; @go get -v github.com/golang/lint/golint
+$(GOX)       : ; @go get -v github.com/mitchellh/gox 
+$(GODEP)     : ; @go get -v github.com/tools/godep
 
 .PHONY: vet
 vet: $(VET) ; @for src in $(GOSOURCES); do go tool vet $$src; done
@@ -120,19 +118,19 @@ vet: $(VET) ; @for src in $(GOSOURCES); do go tool vet $$src; done
 lint: $(LINT) ; @for src in $(GOSOURCES); do golint $$src || exit 1; done
 
 .PHONY: fmt
-fmt: goenvcheck ; @go fmt
+fmt: @go fmt
 
 .PHONY: test
-test: goenvcheck ; @go test -v ./...
+test: @go test -v ./...
 
 .PHONY: race
-race: goenvcheck ; @for pkg in $(GOPKGS); do go test -v -race $$pkg || exit 1; done
+race: @for pkg in $(GOPKGS); do go test -v -race $$pkg || exit 1; done
 
 .PHONY: deps
-deps: goenvcheck ; @go get -u -v -t ./...
+deps: @go get -u -v -t ./...
 
 .PHONY: cover
-cover: goenvcheck $(COVER)
+cover: $(COVER)
 	@echo 'mode: set' > $(COVERAGEOUT)
 	@for pkg in $(GOPKGS); do \
 		go test -v -coverprofile=$(COVERAGETMP) $$pkg || exit 1; \
@@ -140,6 +138,18 @@ cover: goenvcheck $(COVER)
 		rm $(COVERAGETMP); \
 	done
 	@go tool cover -html=$(COVERAGEOUT)
+
+##########################################################################################
+## Godep support
+##########################################################################################
+
+.PHONY: savegodeps
+savegodeps: $(GODEP)
+	$(GODEP) save ./...
+
+.PHONY: restoregodeps
+restoregodeps: $(GODEP)
+	$(GODEP) restore
 
 ##########################################################################################
 ## Make utilities
