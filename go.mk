@@ -25,50 +25,89 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
 # SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-APPBIN      := $(basename $(PWD))
-GOSOURCES   := $(shell find . -type f -name '*.go')
-GOPKGS      := $(shell go list ./...)
-GOPKG       := $(shell go list)
+APPBIN      := $(shell basename $(PWD))
+GOSOURCES   := $(shell find . -type f -name '*.go' ! -path '*Godeps/_workspace*')
+GOPKGS      := $(shell go list ./... 2>/dev/null)
+GOPKG       := $(shell go list 2>/dev/null)
 COVERAGEOUT := coverage.out
 COVERAGETMP := coverage.tmp
 GODEPPATH   := $(PWD)/Godeps/_workspace
 LOCALGOPATH := $(GODEPPATH):$(GOPATH)
+ORIGGOPATH  := $(GOPATH)
+GOMKVERSION := 0.8.1
 
-ifndef GOBIN
-export GOBIN := $(GOPATH)/bin
-endif
-
+# Check GOPATH
 ifndef GOPATH
 $(error ERROR!! GOPATH must be declared. Check [http://golang.org/doc/code.html#GOPATH])
-else
-export GOPATH=$(LOCALGOPATH)
 endif
 
-ifeq ($(shell go list ./... | grep -q '^_'; echo $$?), 0)
+# Check GOBIN, and automatically export it
+ifndef GOBIN
+export GOBIN=$(GOPATH)/bin
+GOBIN := $(GOBIN)
+endif
+
+# Include GODEPPATH
+export GOPATH=$(LOCALGOPATH)
+
+# Check current path
+ifeq ($(shell go list ./... 2>/dev/null | grep -q '^_'; echo $$?), 0)
 $(error ERROR!! This directory should be at $(GOPATH)/src/$(REPO)]
 endif
+
+
+.PHONY: gomkhelp
+gomkhelp:
+	$(info Available go.mk targets: )
+	$(info | gomkhelp      )
+	$(info | gomkbuild     )
+	$(info | gomkxbuild    )
+	$(info | gomkclean     )
+	$(info | gomkupdate    )
+	$(info | vet           )
+	$(info | lint          )
+	$(info | fmt           )
+	$(info | test          )
+	$(info | bench         )
+	$(info | race          )
+	$(info | deps          )
+	$(info | cover         )
+	$(info | present       )
+	$(info | savegodeps    )
+	$(info | restoregodeps )
+	$(info | updategodeps  )
+	$(info | printvars     )
+	@exit 0
+
 
 ##########################################################################################
 ## Project targets
 ##########################################################################################
 
 $(APPBIN): gomkbuild
-	 
+
 ##########################################################################################
 ## Main targets
 ##########################################################################################
 
 .PHONY: gomkbuild
-gomkbuild:  $(GOSOURCES) ; @go build
+gomkbuild: $(GOSOURCES) ; @go build
 
 .PHONY: gomkxbuild
-gomkxbuild: ; $(GOX) 
+gomkxbuild: ; $(GOX)
+
+.PHONY: gomkenv
+gomkenv: ; @go env
 
 .PHONY: gomkclean
-gomkclean: 
+gomkclean:
+	@rm -vf $(APPBIN)_*_386 $(APPBIN)_*_amd64 $(APPBIN)_*_arm $(APPBIN)_*.exe
+	@rm -vf $(COVERAGEOUT) $(COVERAGETMP)
 	@go clean
-	@rm -f $(APPBIN)_*_386 $(APPBIN)_*_amd64 $(APPBIN)_*_arm $(APPBIN)_*.exe
-	@rm -f $(COVERAGEOUT) $(COVERAGETMP)
+
+.PHONY: gomkupdate
+gomkupdate:
+	@curl -o go.mk https://raw.githubusercontent.com/hgfischer/gomk/master/go.mk?$(shell date +%s)
 
 ##########################################################################################
 ## Go tools
@@ -92,6 +131,7 @@ VET       := $(GOTOOLDIR)/vet
 GOX       := $(GOBIN)/gox
 LINT      := $(GOBIN)/lint
 GODEP     := $(GOBIN)/godep
+PRESENT   := $(GOBIN)/present
 
 $(BENCHCMP)  : ; @go get -v golang.org/x/tools/cmd/benchcmp
 $(CALLGRAPH) : ; @go get -v golang.org/x/tools/cmd/callgraph
@@ -107,50 +147,60 @@ $(ORACLE)    : ; @go get -v golang.org/x/tools/cmd/oracle
 $(SSADUMP)   : ; @go get -v golang.org/x/tools/cmd/ssadump
 $(STRINGER)  : ; @go get -v golang.org/x/tools/cmd/stringer
 $(VET)       : ; @go get -v golang.org/x/tools/cmd/vet
+$(PRESENT)   : ; @go get -v golang.org/x/tools/cmd/present
 $(LINT)      : ; @go get -v github.com/golang/lint/golint
-$(GOX)       : ; @go get -v github.com/mitchellh/gox 
+$(GOX)       : ; @go get -v github.com/mitchellh/gox
 $(GODEP)     : ; @go get -v github.com/tools/godep
 
 .PHONY: vet
-vet: $(VET) ; @for src in $(GOSOURCES); do go tool vet $$src; done
+vet: $(VET) ; @for src in $(GOSOURCES); do GOPATH=$(ORIGGOPATH) go tool vet $$src; done
 
 .PHONY: lint
-lint: $(LINT) ; @for src in $(GOSOURCES); do golint $$src || exit 1; done
+lint: $(LINT) ; @for src in $(GOSOURCES); do GOPATH=$(ORIGGOPATH) golint $$src || exit 1; done
 
 .PHONY: fmt
-fmt: ; @go fmt
+fmt: ; @GOPATH=$(ORIGGOPATH) go fmt ./...
 
 .PHONY: test
 test: ; @go test -v ./...
+
+.PHONY: bench
+bench: ; @go test -v -bench=. ./...
 
 .PHONY: race
 race: ; @for pkg in $(GOPKGS); do go test -v -race $$pkg || exit 1; done
 
 .PHONY: deps
-deps: ; @go get -u -v -t ./...
+deps: ; @GOPATH=$(ORIGGOPATH) go get -u -v -t ./...
 
 .PHONY: cover
 cover: $(COVER)
 	@echo 'mode: set' > $(COVERAGEOUT)
 	@for pkg in $(GOPKGS); do \
-		go test -v -coverprofile=$(COVERAGETMP) $$pkg || exit 1; \
-		grep -v 'mode: set' $(COVERAGETMP) >> $(COVERAGEOUT); \
-		rm $(COVERAGETMP); \
+		go test -v -coverprofile=$(COVERAGETMP) $$pkg; \
+		if [ -f $(COVERAGETMP) ]; then \
+			grep -v 'mode: set' $(COVERAGETMP) >> $(COVERAGEOUT); \
+			rm $(COVERAGETMP); \
+		fi; \
 	done
 	@go tool cover -html=$(COVERAGEOUT)
+
+.PHONY: present
+present: $(PRESENT)
+	@present
 
 ##########################################################################################
 ## Godep support
 ##########################################################################################
 
 .PHONY: savegodeps
-savegodeps: $(GODEP) ; $(GODEP) save ./...
+savegodeps: $(GODEP) ; @GOPATH=$(ORIGGOPATH) $(GODEP) save ./...
 
 .PHONY: restoregodeps
-restoregodeps: $(GODEP) ; $(GODEP) restore
+restoregodeps: $(GODEP) ; @GOPATH=$(ORIGGOPATH) $(GODEP) restore
 
 .PHONY: updategodeps
-updategodeps: $(GODEP) ; $(GODEP) update ./...
+updategodeps: $(GODEP) ; @GOPATH=$(ORIGGOPATH) $(GODEP) update ./...
 
 ##########################################################################################
 ## Make utilities

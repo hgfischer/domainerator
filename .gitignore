@@ -23,3 +23,6 @@ _testmain.go
 src
 .DS_Store
 domainerator
+
+*.out
+*.tmp
