@@ -1,6 +1,7 @@
-[![Build Status](https://drone.io/github.com/hgfischer/domainerator/status.png)](https://drone.io/github.com/hgfischer/domainerator/latest)
-
 # Domainerator
+
+[![Build Status](https://travis-ci.org/hgfischer/domainerator.svg?branch=master)](https://travis-ci.org/hgfischer/domainerator)
+[![Go Report Card](https://goreportcard.com/badge/hgfischer/domainerator)](https://goreportcard.com/report/hgfischer/domainerator)
 
 Domainerator was my first Go application. It combines two wordlists (prefixes and suffixes) and a list of TLDs to form 
 domain names and check their DNS status. It outputs a file with each combined domain name and the respective DNS status. 
